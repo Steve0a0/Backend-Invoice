@@ -32,10 +32,17 @@ const app = express();
 
 // Get allowed origins from environment variable
 const allowedOrigins = [
-  "https://freeinvoice-frontend.onrender.com"
+  "https://freeinvoice-frontend.onrender.com",
+  "https://frontend-invoice-rz55.onrender.com"
 ];
 
-// Add production frontend URL if set
+// Add additional frontend URLs from environment variable
+if (process.env.FRONTEND_URL) {
+  const frontendUrls = process.env.FRONTEND_URL.split(',').map(url => url.trim());
+  allowedOrigins.push(...frontendUrls);
+}
+
+// Add production frontend URL if set (legacy support)
 if (process.env.VITE_API_URL) {
   allowedOrigins.push(process.env.VITE_API_URL);
 }
