@@ -41,6 +41,5 @@ services:
 databases:
   - name: freeinvoice-db
     databaseName: freeinvoicepro
-    user: postgres
     plan: free
     region: oregon
