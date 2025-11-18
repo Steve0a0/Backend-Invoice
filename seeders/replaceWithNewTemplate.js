@@ -1,0 +1,343 @@
+const InvoiceTemplate = require("../model/InvoiceTemplate");
+
+const replaceWithNewTemplate = async () => {
+  try {
+    // Delete all existing invoice templates
+    await InvoiceTemplate.destroy({ where: {}, truncate: true });
+
+    const newTemplateHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Invoice {{invoice_number}}</title>
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: Arial, sans-serif;
+    background: #fff;
+    padding: 20px;
+    color: #333;
+  }
+
+  .invoice-container {
+    max-width: 580px;
+    margin: 0 auto;
+  }
+
+  /* Logo */
+  .logo {
+    margin-bottom: 20px;
+  }
+
+  .logo img {
+    max-width: 160px;
+    max-height: 80px;
+    object-fit: contain;
+  }
+
+  h1 {
+    font-size: 28px;
+    margin-bottom: 4px;
+  }
+
+  .invoice-number {
+    color: #666;
+    margin-bottom: 20px;
+  }
+
+  .section {
+    margin-bottom: 20px;
+  }
+
+  .section-title {
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .box {
+    border: 1px solid #ccc;
+    padding: 12px;
+    border-radius: 4px;
+    background: #fafafa;
+  }
+
+  .strong {
+    font-weight: bold;
+    font-size: 15px;
+  }
+
+  /* Meta grid */
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+  }
+
+  th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    font-size: 14px;
+  }
+
+  th {
+    background: #f2f2f2;
+    text-align: left;
+    text-transform: uppercase;
+    font-size: 12px;
+  }
+
+  td:last-child,
+  th:last-child {
+    text-align: right;
+  }
+
+  tr:nth-child(even) td {
+    background: #f9f9f9;
+  }
+
+  /* Totals */
+  .totals {
+    max-width: 300px;
+    margin-left: auto;
+    margin-top: 20px;
+  }
+
+  .totals-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .totals-row.total {
+    font-weight: bold;
+    border-top: 1px solid #ccc;
+    padding-top: 8px;
+    margin-top: 8px;
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .footer {
+    text-align: center;
+    color: #777;
+    margin-top: 30px;
+    font-size: 12px;
+  }
+</style>
+</head>
+
+<body>
+<div class="invoice-container">
+
+  <!-- LOGO -->
+  {{#if companyLogo}}
+  <div class="logo">
+    <img src="{{companyLogo}}" alt="Company Logo">
+  </div>
+  {{/if}}
+
+  <!-- HEADER -->
+  <h1>Invoice</h1>
+  <div class="invoice-number">#{{invoice_number}}</div>
+
+  <!-- BILL TO -->
+  <div class="section">
+    <div class="section-title">Bill To</div>
+    <div class="box">
+      <div class="strong">{{client_name}}</div>
+    </div>
+  </div>
+
+  <!-- BILL FROM -->
+  <div class="section">
+    <div class="section-title">Bill From</div>
+    <div class="box">
+      <div class="strong">{{company_name}}</div>
+      Prepared by: {{userName}}
+    </div>
+  </div>
+
+  <!-- META INFO -->
+  <div class="section">
+    <div class="section-title">Details</div>
+
+    <div class="meta-grid">
+
+      <div class="box">
+        <div class="section-small">Invoice Date</div>
+        <div class="strong">{{invoice_date}}</div>
+      </div>
+
+      <div class="box">
+        <div class="section-small">Currency</div>
+        <div class="strong">{{currency}}</div>
+      </div>
+
+      <div class="box">
+        <div class="section-small">Invoice ID</div>
+        <div class="strong">{{invoice_number}}</div>
+      </div>
+
+      {{#if payment_terms}}
+      <div class="box">
+        <div class="section-small">Payment Terms</div>
+        <div class="strong">{{payment_terms}}</div>
+      </div>
+      {{/if}}
+
+    </div>
+  </div>
+
+  <!-- WORK TYPE -->
+  {{#if work_type}}
+  <div class="section">
+    <div class="section-title">Project / Service</div>
+    <div class="box">{{work_type}}</div>
+  </div>
+  {{/if}}
+
+  <!-- CUSTOM FIELDS -->
+  {{#if has_custom_fields}}
+  <div class="section">
+    <div class="section-title">Additional Info</div>
+    <div class="box">
+      {{#each custom_fields}}
+      <div><strong>{{this.label}}:</strong> {{this.value}}</div>
+      {{/each}}
+    </div>
+  </div>
+  {{/if}}
+
+  <!-- TABLE -->
+  <div class="section">
+    <table>
+      <thead>
+        <tr>
+          <th>Description</th>
+
+          {{#if (eq item_structure "hourly")}}
+          <th>Hours</th>
+          <th>Rate</th>
+
+          {{else if (eq item_structure "fixed_price")}}
+          <th>Qty</th>
+          <th>Unit Price</th>
+
+          {{else if (eq item_structure "daily_rate")}}
+          <th>Days</th>
+          <th>Rate</th>
+
+          {{else}}
+          <th></th>
+          {{/if}}
+
+          <th>Amount</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {{#each tasks}}
+        <tr>
+          <td>{{description}}</td>
+
+          {{#if (eq ../item_structure "hourly")}}
+          <td>{{hours}}</td>
+          <td>{{../currencySymbol}}{{rate}}</td>
+
+          {{else if (eq ../item_structure "fixed_price")}}
+          <td>{{quantity}}</td>
+          <td>{{../currencySymbol}}{{unitPrice}}</td>
+
+          {{else if (eq ../item_structure "daily_rate")}}
+          <td>{{days}}</td>
+          <td>{{../currencySymbol}}{{rate}}</td>
+
+          {{else}}
+          <td></td>
+          {{/if}}
+
+          <td>{{../currencySymbol}}{{total}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- TOTALS -->
+  <div class="totals">
+    {{#if subtotal}}
+    <div class="totals-row">
+      <span>Subtotal</span>
+      <span>{{currencySymbol}}{{subtotal}}</span>
+    </div>
+    {{/if}}
+
+    {{#if tax_rate}}
+    <div class="totals-row">
+      <span>Tax ({{tax_rate}}%)</span>
+      <span>{{currencySymbol}}{{tax_amount}}</span>
+    </div>
+    {{/if}}
+
+    <div class="totals-row total">
+      <span>Total Due</span>
+      <span>{{currencySymbol}}{{total_amount}}</span>
+    </div>
+  </div>
+
+  <!-- NOTES + BANK -->
+  <div class="two-col">
+
+    {{#if notes}}
+    <div class="box">
+      <strong>Notes:</strong><br>
+      {{notes}}
+    </div>
+    {{/if}}
+
+    {{#if bankName}}
+    <div class="box">
+      <strong>Payment Details:</strong><br>
+
+      {{#if accountHolderName}}Account Holder: {{accountHolderName}}<br>{{/if}}
+      {{#if bankName}}Bank: {{bankName}}<br>{{/if}}
+      {{#if iban}}IBAN: {{iban}}<br>{{/if}}
+      {{#if bic}}BIC: {{bic}}<br>{{/if}}
+      {{#if accountNumber}}Account #: {{accountNumber}}<br>{{/if}}
+
+    </div>
+    {{/if}}
+
+  </div>
+
+  <div class="footer">
+    Thank you for your business.<br>
+    Invoice #{{invoice_number}} • {{invoice_date}}
+  </div>
+
+</div>
+</body>
+</html>`;
+    
+  } catch (error) {
+    console.error("❌ Error replacing templates:", error);
+  }
+};
+
+module.exports = replaceWithNewTemplate;

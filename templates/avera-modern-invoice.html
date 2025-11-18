@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Invoice {{invoice_number}}</title>
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @page {
+        size: A4;
+        margin: 0;
+    }
+
+    body {
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: #eaeaea;
+        padding: 40px 0;
+        display: flex;
+        justify-content: center;
+        min-width: 794px;
+        overflow-x: auto;
+    }
+
+    .invoice-a4 {
+        width: 794px;   /* A4 width at 96 DPI */
+        min-width: 794px;
+        height: auto;
+        background: #fff;
+        padding: 50px 60px;
+        border-radius: 0;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 0 25px rgba(0,0,0,0.15);
+    }
+
+    /* Aesthetic golden circle */
+    .circle {
+        width: 420px;
+        height: 420px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #d9a556, #b8860b);
+        opacity: 0.16;
+        position: absolute;
+        top: -150px;
+        right: -130px;
+    }
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 50px;
+        align-items: center;
+    }
+
+    .logo-section {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .company-logo {
+        max-width: 80px;
+        max-height: 80px;
+        object-fit: contain;
+    }
+
+    .logo {
+        font-size: 22px;
+        font-weight: 900;
+        color: #111;
+        letter-spacing: 1px;
+    }
+
+    .invoice-title {
+        font-size: 48px;
+        font-weight: 900;
+        color: #111;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .invoice-icon {
+        width: 42px;
+        height: 42px;
+        color: #d9a556;
+    }
+
+    .info-grid {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 40px;
+    }
+
+    .info-block h4 {
+        font-size: 13px;
+        color: #7c7c7c;
+        letter-spacing: 1px;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+    }
+
+    .info-block p {
+        font-size: 16px;
+        margin-bottom: 4px;
+        color: #333;
+    }
+
+    .custom-fields {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+    }
+
+    .custom-field {
+        font-size: 14px;
+        margin-bottom: 3px;
+        color: #555;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+
+    table thead {
+        background: #f8f8f8;
+    }
+
+    th {
+        text-align: left;
+        padding: 14px;
+        font-size: 14px;
+        color: #444;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+    }
+
+    th.right {
+        text-align: right;
+    }
+
+    td {
+        padding: 14px;
+        font-size: 15px;
+        border-bottom: 1px solid #e5e5e5;
+        color: #333;
+    }
+
+    td.right {
+        text-align: right;
+    }
+
+    .totals {
+        margin-top: 40px;
+        width: 320px;
+        margin-left: auto;
+        font-size: 17px;
+    }
+
+    .totals div {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        color: #333;
+    }
+
+    .grand {
+        margin-top: 10px;
+        padding-top: 15px;
+        border-top: 2px solid #000;
+        font-size: 22px;
+        font-weight: bold;
+    }
+
+    .notes-section {
+        margin-top: 50px;
+        padding: 20px;
+        background: #f9f9f9;
+        border-left: 4px solid #d9a556;
+    }
+
+    .notes-section h4 {
+        font-size: 13px;
+        color: #7c7c7c;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+    }
+
+    .notes-section p {
+        font-size: 14px;
+        color: #555;
+        line-height: 1.6;
+    }
+
+    .bank-details-section {
+        margin-top: 30px;
+        padding: 20px;
+        background: #f0f7f0;
+        border-left: 4px solid #4caf50;
+        border-radius: 4px;
+    }
+
+    .bank-details-section h4 {
+        font-size: 13px;
+        color: #2e7d32;
+        letter-spacing: 1px;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        font-weight: 700;
+    }
+
+    .bank-detail-item {
+        font-size: 14px;
+        margin-bottom: 6px;
+        color: #333;
+    }
+
+    .bank-detail-label {
+        font-weight: 600;
+        color: #555;
+        display: inline-block;
+        min-width: 140px;
+    }
+
+    .bank-detail-value {
+        color: #222;
+    }
+
+    .footer {
+        position: absolute;
+        bottom: 40px;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        color: #777;
+        font-size: 14px;
+    }
+</style>
+</head>
+
+<body>
+
+<div class="invoice-a4">
+    <div class="circle"></div>
+
+    <div class="header">
+        <div class="logo-section">
+            {{#if company_logo}}
+            <img src="{{company_logo}}" alt="Company Logo" class="company-logo" />
+            {{else}}
+            <div class="logo">{{company_name}}</div>
+            {{/if}}
+        </div>
+        <div class="invoice-title">INVOICE</div>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-block">
+            <h4>Bill To</h4>
+            <p><strong>{{client_name}}</strong></p>
+            {{#if client_email}}
+            <p>{{client_email}}</p>
+            {{/if}}
+            {{#if client_address}}
+            <p>{{client_address}}</p>
+            {{/if}}
+        </div>
+
+        <div class="info-block">
+            <h4>Invoice Details</h4>
+            <p><strong>Invoice #:</strong> {{invoice_number}}</p>
+            <p><strong>Date:</strong> {{invoice_date}}</p>
+            {{#if due_date}}
+            <p><strong>Due:</strong> {{due_date}}</p>
+            {{/if}}
+            <p><strong>Status:</strong> {{status}}</p>
+            
+            {{#if has_custom_fields}}
+            <div class="custom-fields">
+                {{#each custom_fields}}
+                <p class="custom-field"><strong>{{this.label}}:</strong> {{this.value}}</p>
+                {{/each}}
+            </div>
+            {{/if}}
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Description</th>
+                {{#if (eq item_structure "hourly")}}
+                <th class="right">Hours</th>
+                <th class="right">Rate</th>
+                {{else if (eq item_structure "fixed_price")}}
+                <th class="right">Qty</th>
+                <th class="right">Unit Price</th>
+                {{else if (eq item_structure "daily_rate")}}
+                <th class="right">Days</th>
+                <th class="right">Rate</th>
+                {{/if}}
+                <th class="right">Amount ({{currency_symbol}})</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {{#each tasks}}
+            <tr>
+                <td>{{this.description}}</td>
+                {{#if (eq ../item_structure "hourly")}}
+                <td class="right">{{this.hours}}</td>
+                <td class="right">{{this.rate}}</td>
+                {{else if (eq ../item_structure "fixed_price")}}
+                <td class="right">{{this.quantity}}</td>
+                <td class="right">{{this.unitPrice}}</td>
+                {{else if (eq ../item_structure "daily_rate")}}
+                <td class="right">{{this.days}}</td>
+                <td class="right">{{this.rate}}</td>
+                {{/if}}
+                <td class="right">{{this.total}}</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <div><span>Subtotal</span><span>{{currency_symbol}}{{subtotal}}</span></div>
+        {{#if tax_rate}}
+        <div><span>Tax ({{tax_rate}}%)</span><span>{{currency_symbol}}{{tax_amount}}</span></div>
+        {{else}}
+        <div><span>Tax (0%)</span><span>{{currency_symbol}}0</span></div>
+        {{/if}}
+        <div class="grand"><span>Total</span><span>{{currency_symbol}}{{total_amount}}</span></div>
+    </div>
+
+    {{#if accountHolderName}}
+    <div class="bank-details-section">
+        <h4>Payment Details</h4>
+        <div class="bank-detail-item">
+            <span class="bank-detail-label">Account Holder:</span>
+            <span class="bank-detail-value">{{accountHolderName}}</span>
+        </div>
+        {{#if bankName}}
+        <div class="bank-detail-item">
+            <span class="bank-detail-label">Bank Name:</span>
+            <span class="bank-detail-value">{{bankName}}</span>
+        </div>
+        {{/if}}
+        {{#if accountNumber}}
+        <div class="bank-detail-item">
+            <span class="bank-detail-label">Account Number:</span>
+            <span class="bank-detail-value">{{accountNumber}}</span>
+        </div>
+        {{/if}}
+        {{#if iban}}
+        <div class="bank-detail-item">
+            <span class="bank-detail-label">IBAN:</span>
+            <span class="bank-detail-value">{{iban}}</span>
+        </div>
+        {{/if}}
+        {{#if bic}}
+        <div class="bank-detail-item">
+            <span class="bank-detail-label">BIC/SWIFT:</span>
+            <span class="bank-detail-value">{{bic}}</span>
+        </div>
+        {{/if}}
+        {{#if sortCode}}
+        <div class="bank-detail-item">
+            <span class="bank-detail-label">Sort Code:</span>
+            <span class="bank-detail-value">{{sortCode}}</span>
+        </div>
+        {{/if}}
+        {{#if swiftCode}}
+        <div class="bank-detail-item">
+            <span class="bank-detail-label">SWIFT Code:</span>
+            <span class="bank-detail-value">{{swiftCode}}</span>
+        </div>
+        {{/if}}
+        {{#if routingNumber}}
+        <div class="bank-detail-item">
+            <span class="bank-detail-label">Routing Number:</span>
+            <span class="bank-detail-value">{{routingNumber}}</span>
+        </div>
+        {{/if}}
+        {{#if bankAddress}}
+        <div class="bank-detail-item">
+            <span class="bank-detail-label">Bank Address:</span>
+            <span class="bank-detail-value">{{bankAddress}}</span>
+        </div>
+        {{/if}}
+        {{#if additionalInfo}}
+        <div class="bank-detail-item">
+            <span class="bank-detail-label">Additional Info:</span>
+            <span class="bank-detail-value">{{additionalInfo}}</span>
+        </div>
+        {{/if}}
+    </div>
+    {{/if}}
+
+    {{#if notes}}
+    <div class="notes-section">
+        <h4>Notes</h4>
+        <p>{{notes}}</p>
+    </div>
+    {{/if}}
+
+    <div class="footer">
+        Thank you for your business{{#if company_email}} • {{company_email}}{{/if}}
+    </div>
+</div>
+
+</body>
+</html>

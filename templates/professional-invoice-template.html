@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Invoice {{invoice_number}}</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      background: #f4f5fb;
+      color: #111827;
+      padding: 24px;
+      min-width: 480px;
+      overflow-x: auto;
+    }
+
+    .invoice {
+      width: 480px;
+      min-width: 480px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      padding: 32px 32px 40px;
+    }
+
+    .invoice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 20px;
+      margin-bottom: 24px;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .brand-logo img {
+      max-width: 150px;
+      max-height: 70px;
+      object-fit: contain;
+    }
+
+    .brand-name {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: #111827;
+    }
+
+    .brand-meta {
+      font-size: 12px;
+      color: #6b7280;
+      line-height: 1.5;
+    }
+
+    .invoice-label {
+      text-align: right;
+    }
+
+    .invoice-label-title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: #111827;
+      margin-bottom: 4px;
+    }
+
+    .invoice-label-number {
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    .section-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      padding: 14px 16px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #9ca3af;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .card-content {
+      font-size: 13px;
+      color: #111827;
+      line-height: 1.5;
+    }
+
+    .name-strong {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .meta-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .meta-item {
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      padding: 10px 12px;
+    }
+
+    .meta-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #9ca3af;
+      margin-bottom: 4px;
+    }
+
+    .meta-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .work-type {
+      border-left: 3px solid #6366f1;
+      background: #eef2ff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #312e81;
+      margin-bottom: 18px;
+    }
+
+    .work-type-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .items-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      margin-bottom: 18px;
+    }
+
+    .items-wrapper::-webkit-scrollbar {
+      height: 6px;
+    }
+
+    .items-wrapper::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 999px;
+    }
+
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+
+    .items-table thead {
+      background: #111827;
+      color: #f9fafb;
+    }
+
+    .items-table th,
+    .items-table td {
+      padding: 10px 12px;
+      font-size: 12px;
+      text-align: left;
+    }
+
+    .items-table th {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 600;
+    }
+
+    .items-table th:last-child,
+    .items-table td:last-child {
+      text-align: right;
+    }
+
+    .items-table tbody tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    .items-table tbody tr {
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .totals-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+      margin-bottom: 22px;
+    }
+
+    .totals-box {
+      min-width: 260px;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      padding: 14px 16px;
+    }
+
+    .totals-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .totals-item-label {
+      color: #6b7280;
+    }
+
+    .totals-item-value {
+      color: #111827;
+      font-weight: 500;
+    }
+
+    .totals-item.grand {
+      border-top: 1px solid #e5e7eb;
+      margin-top: 6px;
+      padding-top: 8px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .subgrid {
+      display: grid;
+      grid-template-columns: 1.2fr 1.1fr;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .note-box {
+      border-radius: 10px;
+      border: 1px solid #dbebff;
+      background: #eff6ff;
+      padding: 12px 12px 10px;
+      font-size: 12px;
+      color: #0f172a;
+    }
+
+    .note-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #1d4ed8;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .note-body {
+      white-space: pre-line;
+      line-height: 1.5;
+    }
+
+    .bank-box {
+      border-radius: 10px;
+      border: 1px solid #bbf7d0;
+      background: #ecfdf3;
+      padding: 12px 12px 10px;
+      font-size: 12px;
+      color: #064e3b;
+    }
+
+    .bank-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #047857;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .bank-field {
+      margin-bottom: 2px;
+    }
+
+    .bank-label {
+      font-weight: 600;
+    }
+
+    .bank-value {
+      font-weight: 400;
+    }
+
+    .custom-fields {
+      border-radius: 10px;
+      border: 1px dashed #e5e7eb;
+      background: #f9fafb;
+      padding: 12px 12px 10px;
+      font-size: 12px;
+      color: #374151;
+      margin-bottom: 18px;
+    }
+
+    .custom-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #6b7280;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .custom-field {
+      margin-bottom: 2px;
+    }
+
+    .custom-label {
+      font-weight: 500;
+    }
+
+    .footer {
+      border-top: 1px solid #e5e7eb;
+      margin-top: 20px;
+      padding-top: 14px;
+      text-align: center;
+      font-size: 11px;
+      color: #9ca3af;
+      line-height: 1.5;
+    }
+
+    .footer-strong {
+      color: #4b5563;
+      font-weight: 500;
+    }
+
+    .payment-actions {
+      text-align: center;
+      margin: 12px 0 4px;
+    }
+
+    .pay-button {
+      display: inline-block;
+      margin: 4px 6px;
+      padding: 9px 20px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 999px;
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      border-width: 1px;
+      border-style: solid;
+    }
+
+    .pay-paypal {
+      background: #fbbf24;
+      color: #1f2937;
+      border-color: #f59e0b;
+    }
+
+    .pay-stripe {
+      background: #4f46e5;
+      color: #f9fafb;
+      border-color: #4338ca;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+
+      .invoice {
+        box-shadow: none;
+        border-radius: 0;
+        width: 480px; /* Keep fixed width when printing */
+        min-width: 480px;
+        padding: 20px 24px 24px;
+      }
+
+      .payment-actions {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice">
+    <!-- Header -->
+    <div class="invoice-header">
+      <div class="brand">
+        {{#if companyLogo}}
+        <div class="brand-logo">
+          <img src="{{companyLogo}}" alt="Company Logo" />
+        </div>
+        {{/if}}
+        <div class="brand-name">{{company_name}}</div>
+        <div class="brand-meta">
+          Prepared by {{userName}}<br />
+        </div>
+      </div>
+      <div class="invoice-label">
+        <div class="invoice-label-title">Invoice</div>
+        <div class="invoice-label-number">#{{invoice_number}}</div>
+      </div>
+    </div>
+
+    <!-- Bill To / From -->
+    <div class="section-grid">
+      <div class="card">
+        <div class="card-title">Bill To</div>
+        <div class="card-content">
+          <div class="name-strong">{{client_name}}</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Bill From</div>
+        <div class="card-content">
+          <div class="name-strong">{{company_name}}</div>
+          <div>Contact: {{userName}}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meta: date, currency, project -->
+    <div class="meta-list">
+      <div class="meta-item">
+        <div class="meta-label">Invoice Date</div>
+        <div class="meta-value">{{invoice_date}}</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">Currency</div>
+        <div class="meta-value">{{currency}}</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">Invoice ID</div>
+        <div class="meta-value">{{invoice_number}}</div>
+      </div>
+      {{#if payment_terms}}
+      <div class="meta-item">
+        <div class="meta-label">Payment Terms</div>
+        <div class="meta-value">{{payment_terms}}</div>
+      </div>
+      {{/if}}
+    </div>
+
+    <!-- Work type -->
+    {{#if work_type}}
+    <div class="work-type">
+      <div class="work-type-label">Project / Service</div>
+      <div>{{work_type}}</div>
+    </div>
+    {{/if}}
+
+    <!-- Custom fields (PO, tax, project code, delivery etc.) -->
+    {{#if po_number}}
+    <div class="custom-fields">
+      <div class="custom-title">Additional Invoice Details</div>
+      <div class="custom-field"><span class="custom-label">PO Number:</span> {{po_number}}</div>
+      {{#if project_code}}
+      <div class="custom-field"><span class="custom-label">Project Code:</span> {{project_code}}</div>
+      {{/if}}
+      {{#if tax_id}}
+      <div class="custom-field"><span class="custom-label">Tax ID / VAT:</span> {{tax_id}}</div>
+      {{/if}}
+      {{#if delivery_date}}
+      <div class="custom-field"><span class="custom-label">Delivery Date:</span> {{delivery_date}}</div>
+      {{/if}}
+      {{#if special_instructions}}
+      <div class="custom-field"><span class="custom-label">Special Instructions:</span> {{special_instructions}}</div>
+      {{/if}}
+    </div>
+    {{else}}
+      {{#if project_code}}
+      <div class="custom-fields">
+        <div class="custom-title">Additional Invoice Details</div>
+        <div class="custom-field"><span class="custom-label">Project Code:</span> {{project_code}}</div>
+        {{#if tax_id}}
+        <div class="custom-field"><span class="custom-label">Tax ID / VAT:</span> {{tax_id}}</div>
+        {{/if}}
+        {{#if delivery_date}}
+        <div class="custom-field"><span class="custom-label">Delivery Date:</span> {{delivery_date}}</div>
+        {{/if}}
+        {{#if special_instructions}}
+        <div class="custom-field"><span class="custom-label">Special Instructions:</span> {{special_instructions}}</div>
+        {{/if}}
+      </div>
+      {{else}}
+        {{#if tax_id}}
+        <div class="custom-fields">
+          <div class="custom-title">Additional Invoice Details</div>
+          <div class="custom-field"><span class="custom-label">Tax ID / VAT:</span> {{tax_id}}</div>
+          {{#if delivery_date}}
+          <div class="custom-field"><span class="custom-label">Delivery Date:</span> {{delivery_date}}</div>
+          {{/if}}
+          {{#if special_instructions}}
+          <div class="custom-field"><span class="custom-label">Special Instructions:</span> {{special_instructions}}</div>
+          {{/if}}
+        </div>
+        {{else}}
+          {{#if delivery_date}}
+          <div class="custom-fields">
+            <div class="custom-title">Additional Invoice Details</div>
+            <div class="custom-field"><span class="custom-label">Delivery Date:</span> {{delivery_date}}</div>
+            {{#if special_instructions}}
+            <div class="custom-field"><span class="custom-label">Special Instructions:</span> {{special_instructions}}</div>
+            {{/if}}
+          </div>
+          {{else}}
+            {{#if special_instructions}}
+            <div class="custom-fields">
+              <div class="custom-title">Additional Invoice Details</div>
+              <div class="custom-field"><span class="custom-label">Special Instructions:</span> {{special_instructions}}</div>
+            </div>
+            {{/if}}
+          {{/if}}
+        {{/if}}
+      {{/if}}
+    {{/if}}
+
+    <!-- Line items -->
+    <div class="items-wrapper">
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th style="width: 46%;">Description</th>
+            {{#if (eq item_structure "hourly")}}
+            <th style="width: 12%;">Hours</th>
+            <th style="width: 16%;">Rate</th>
+            {{else if (eq item_structure "fixed_price")}}
+            <th style="width: 12%;">Qty</th>
+            <th style="width: 16%;">Unit Price</th>
+            {{else if (eq item_structure "daily_rate")}}
+            <th style="width: 12%;">Days</th>
+            <th style="width: 16%;">Rate</th>
+            {{else}}
+            <th style="width: 28%;"></th>
+            {{/if}}
+            <th style="width: 18%;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each tasks}}
+          <tr>
+            <td>{{description}}</td>
+            {{#if (eq ../item_structure "hourly")}}
+            <td>{{hours}}</td>
+            <td>{{../currencySymbol}}{{rate}}</td>
+            {{else if (eq ../item_structure "fixed_price")}}
+            <td>{{quantity}}</td>
+            <td>{{../currencySymbol}}{{unitPrice}}</td>
+            {{else if (eq ../item_structure "daily_rate")}}
+            <td>{{days}}</td>
+            <td>{{../currencySymbol}}{{rate}}</td>
+            {{else}}
+            <td></td>
+            {{/if}}
+            <td>{{../currencySymbol}}{{total}}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Totals -->
+    <div class="totals-row">
+      <div class="totals-box">
+        <div class="totals-item grand">
+          <span class="totals-item-label">Total Due</span>
+          <span class="totals-item-value">{{currencySymbol}}{{totalAmount}}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes + Bank details -->
+    <div class="subgrid">
+      {{#if notes}}
+      <div class="note-box">
+        <div class="note-title">Notes</div>
+        <div class="note-body">{{notes}}</div>
+      </div>
+      {{/if}}
+
+      {{#if accountHolderName}}
+      <div class="bank-box">
+        <div class="bank-title">Payment Details</div>
+        <div class="bank-field">
+          <span class="bank-label">Account Holder:</span>
+          <span class="bank-value"> {{accountHolderName}}</span>
+        </div>
+        {{#if bankName}}
+        <div class="bank-field">
+          <span class="bank-label">Bank:</span>
+          <span class="bank-value"> {{bankName}}</span>
+        </div>
+        {{/if}}
+        {{#if iban}}
+        <div class="bank-field">
+          <span class="bank-label">IBAN:</span>
+          <span class="bank-value"> {{iban}}</span>
+        </div>
+        {{/if}}
+        {{#if bic}}
+        <div class="bank-field">
+          <span class="bank-label">BIC/SWIFT:</span>
+          <span class="bank-value"> {{bic}}</span>
+        </div>
+        {{/if}}
+        {{#if sortCode}}
+        <div class="bank-field">
+          <span class="bank-label">Sort Code:</span>
+          <span class="bank-value"> {{sortCode}}</span>
+        </div>
+        {{/if}}
+        {{#if accountNumber}}
+        <div class="bank-field">
+          <span class="bank-label">Account #:</span>
+          <span class="bank-value"> {{accountNumber}}</span>
+        </div>
+        {{/if}}
+        {{#if swiftCode}}
+        <div class="bank-field">
+          <span class="bank-label">SWIFT:</span>
+          <span class="bank-value"> {{swiftCode}}</span>
+        </div>
+        {{/if}}
+        {{#if routingNumber}}
+        <div class="bank-field">
+          <span class="bank-label">Routing #:</span>
+          <span class="bank-value"> {{routingNumber}}</span>
+        </div>
+        {{/if}}
+        {{#if bankAddress}}
+        <div class="bank-field">
+          <span class="bank-label">Bank Address:</span>
+          <span class="bank-value"> {{bankAddress}}</span>
+        </div>
+        {{/if}}
+        {{#if additionalInfo}}
+        <div class="bank-field">
+          <span class="bank-label">Additional Info:</span>
+          <span class="bank-value"> {{additionalInfo}}</span>
+        </div>
+        {{/if}}
+      </div>
+      {{else}}
+        {{#if bankName}}
+        <div class="bank-box">
+          <div class="bank-title">Payment Details</div>
+          <div class="bank-field">
+            <span class="bank-label">Bank:</span>
+            <span class="bank-value"> {{bankName}}</span>
+          </div>
+          {{#if iban}}
+          <div class="bank-field">
+            <span class="bank-label">IBAN:</span>
+            <span class="bank-value"> {{iban}}</span>
+          </div>
+          {{/if}}
+          {{#if bic}}
+          <div class="bank-field">
+            <span class="bank-label">BIC/SWIFT:</span>
+            <span class="bank-value"> {{bic}}</span>
+          </div>
+          {{/if}}
+          {{#if sortCode}}
+          <div class="bank-field">
+            <span class="bank-label">Sort Code:</span>
+            <span class="bank-value"> {{sortCode}}</span>
+          </div>
+          {{/if}}
+          {{#if accountNumber}}
+          <div class="bank-field">
+            <span class="bank-label">Account #:</span>
+            <span class="bank-value"> {{accountNumber}}</span>
+          </div>
+          {{/if}}
+          {{#if swiftCode}}
+          <div class="bank-field">
+            <span class="bank-label">SWIFT:</span>
+            <span class="bank-value"> {{swiftCode}}</span>
+          </div>
+          {{/if}}
+          {{#if routingNumber}}
+          <div class="bank-field">
+            <span class="bank-label">Routing #:</span>
+            <span class="bank-value"> {{routingNumber}}</span>
+          </div>
+          {{/if}}
+          {{#if bankAddress}}
+          <div class="bank-field">
+            <span class="bank-label">Bank Address:</span>
+            <span class="bank-value"> {{bankAddress}}</span>
+          </div>
+          {{/if}}
+          {{#if additionalInfo}}
+          <div class="bank-field">
+            <span class="bank-label">Additional Info:</span>
+            <span class="bank-value"> {{additionalInfo}}</span>
+          </div>
+          {{/if}}
+        </div>
+        {{else}}
+          {{#if iban}}
+          <div class="bank-box">
+            <div class="bank-title">Payment Details</div>
+            <div class="bank-field">
+              <span class="bank-label">IBAN:</span>
+              <span class="bank-value"> {{iban}}</span>
+            </div>
+            {{#if bic}}
+            <div class="bank-field">
+              <span class="bank-label">BIC/SWIFT:</span>
+              <span class="bank-value"> {{bic}}</span>
+            </div>
+            {{/if}}
+            {{#if sortCode}}
+            <div class="bank-field">
+              <span class="bank-label">Sort Code:</span>
+              <span class="bank-value"> {{sortCode}}</span>
+            </div>
+            {{/if}}
+            {{#if accountNumber}}
+            <div class="bank-field">
+              <span class="bank-label">Account #:</span>
+              <span class="bank-value"> {{accountNumber}}</span>
+            </div>
+            {{/if}}
+            {{#if swiftCode}}
+            <div class="bank-field">
+              <span class="bank-label">SWIFT:</span>
+              <span class="bank-value"> {{swiftCode}}</span>
+            </div>
+            {{/if}}
+            {{#if routingNumber}}
+            <div class="bank-field">
+              <span class="bank-label">Routing #:</span>
+              <span class="bank-value"> {{routingNumber}}</span>
+            </div>
+            {{/if}}
+            {{#if bankAddress}}
+            <div class="bank-field">
+              <span class="bank-label">Bank Address:</span>
+              <span class="bank-value"> {{bankAddress}}</span>
+            </div>
+            {{/if}}
+            {{#if additionalInfo}}
+            <div class="bank-field">
+              <span class="bank-label">Additional Info:</span>
+              <span class="bank-value"> {{additionalInfo}}</span>
+            </div>
+            {{/if}}
+          </div>
+          {{/if}}
+        {{/if}}
+      {{/if}}
+    </div>
+
+    <!-- Payment buttons (for online invoices, hidden on print) -->
+    <div class="payment-actions">
+      {{#if paypalPaymentLink}}
+      <a href="{{paypalPaymentLink}}" class="pay-button pay-paypal">Pay with PayPal</a>
+      {{/if}}
+      {{#if stripePaymentLink}}
+      <a href="{{stripePaymentLink}}" class="pay-button pay-stripe">Pay with Card</a>
+      {{/if}}
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-strong">Thank you for your business.</div>
+      <div>Invoice #{{invoice_number}} &nbsp;•&nbsp; {{invoice_date}}</div>
+    </div>
+  </div>
+</body>
+</html>

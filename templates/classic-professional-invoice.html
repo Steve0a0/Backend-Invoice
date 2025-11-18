@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Invoice</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #f9f9f9;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 750px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 40px;
+      border-bottom: 2px solid #333;
+      padding-bottom: 20px;
+    }
+
+    .logo-section {
+      flex: 1;
+    }
+
+    .logo-section img {
+      max-width: 180px;
+      height: auto;
+      display: block;
+    }
+
+    .invoice-title {
+      font-family: 'Times New Roman', serif;
+      font-size: 42px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #333;
+      text-align: right;
+    }
+
+    /* ===== BILL TO ROW ===== */
+    .bill-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 30px;
+      gap: 20px;
+    }
+
+    .bill-left {
+      flex: 1;
+    }
+
+    .bill-right {
+      text-align: right;
+      color: #555;
+      line-height: 1.8;
+    }
+
+    .bill-title {
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      font-size: 12px;
+      letter-spacing: 1px;
+      color: #333;
+    }
+
+    .bill-text {
+      color: #555;
+      line-height: 1.8;
+    }
+
+    /* ===== TABLE ===== */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+
+    thead {
+      background-color: #f5f5f5;
+    }
+
+    th {
+      text-align: left;
+      padding: 12px 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid #333;
+      color: #333;
+    }
+
+    th:last-child,
+    td:last-child {
+      text-align: right;
+    }
+
+    td {
+      padding: 12px 10px;
+      border-bottom: 1px solid #e0e0e0;
+      color: #555;
+    }
+
+    tbody tr:hover {
+      background-color: #fafafa;
+    }
+
+    /* ===== TOTALS SECTION ===== */
+    .totals-section {
+      margin-top: 20px;
+      text-align: right;
+    }
+
+    .totals-row {
+      display: flex;
+      justify-content: flex-end;
+      padding: 8px 0;
+    }
+
+    .totals-label {
+      width: 150px;
+      text-align: right;
+      padding-right: 20px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .totals-value {
+      width: 120px;
+      text-align: right;
+      color: #555;
+    }
+
+    .totals-row.grand-total {
+      border-top: 2px solid #333;
+      padding-top: 12px;
+      margin-top: 8px;
+      font-size: 18px;
+    }
+
+    .totals-row.grand-total .totals-label,
+    .totals-row.grand-total .totals-value {
+      font-weight: bold;
+      color: #000;
+    }
+
+    /* ===== CUSTOM FIELDS ===== */
+    .custom-fields {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      border-left: 3px solid #333;
+    }
+
+    .custom-fields h3 {
+      font-size: 14px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #333;
+    }
+
+    .custom-field-item {
+      margin-bottom: 8px;
+      color: #555;
+    }
+
+    .custom-field-item strong {
+      color: #333;
+    }
+
+    /* ===== PAYMENT INFO ===== */
+    .payment-info {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      border-left: 3px solid #333;
+    }
+
+    .payment-info h3 {
+      font-size: 14px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #333;
+    }
+
+    .payment-detail {
+      margin-bottom: 6px;
+      color: #555;
+    }
+
+    .payment-detail strong {
+      color: #333;
+      display: inline-block;
+      width: 120px;
+    }
+
+    /* ===== SIGNATURE ===== */
+    .signature-section {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+      text-align: center;
+      color: #777;
+      font-size: 13px;
+    }
+
+    .signature-section p {
+      margin-bottom: 4px;
+    }
+
+    .signature-section strong {
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- HEADER -->
+    <div class="header">
+      <div class="logo-section">
+        {{#if companyLogo}}
+          <img src="{{companyLogo}}" alt="Company Logo"/>
+        {{/if}}
+      </div>
+      <div class="invoice-title">INVOICE</div>
+    </div>
+
+    <!-- BILL TO / INVOICE INFO ROW -->
+    <div class="bill-row">
+      <div class="bill-left">
+        <div class="bill-title">Billed To:</div>
+        <div class="bill-text">
+          {{client_name}}<br>
+          {{#if client_email}}{{client_email}}{{/if}}
+        </div>
+      </div>
+      <div class="bill-right">
+        <strong>Invoice No.</strong> {{invoice_number}}<br>
+        <strong>Date:</strong> {{invoice_date}}<br>
+        {{#if due_date}}
+          <strong>Due Date:</strong> {{due_date}}
+        {{/if}}
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <table>
+      <thead>
+        <tr>
+          <th>Description</th>
+
+          {{#if (eq item_structure "hourly")}}
+            <th>Hours</th>
+            <th>Rate</th>
+          {{else if (eq item_structure "fixed_price")}}
+            <th>Qty</th>
+            <th>Unit Price</th>
+          {{else if (eq item_structure "daily_rate")}}
+            <th>Days</th>
+            <th>Rate</th>
+          {{else}}
+            <!-- simple -->
+          {{/if}}
+
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each items}}
+          <tr>
+            <td>{{this.description}}</td>
+
+            {{#if (eq ../item_structure "hourly")}}
+              <td>{{this.hours}}</td>
+              <td>{{../currency_symbol}}{{this.rate}}</td>
+            {{else if (eq ../item_structure "fixed_price")}}
+              <td>{{this.quantity}}</td>
+              <td>{{../currency_symbol}}{{this.unitPrice}}</td>
+            {{else if (eq ../item_structure "daily_rate")}}
+              <td>{{this.days}}</td>
+              <td>{{../currency_symbol}}{{this.rate}}</td>
+            {{else}}
+              <!-- simple: no extra columns -->
+            {{/if}}
+
+            <td>{{../currency_symbol}}{{this.amount}}</td>
+          </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+    <!-- TOTALS -->
+    <div class="totals-section">
+      <div class="totals-row">
+        <div class="totals-label">Subtotal:</div>
+        <div class="totals-value">{{currency_symbol}}{{subtotal}}</div>
+      </div>
+
+      {{#if tax}}
+        <div class="totals-row">
+          <div class="totals-label">Tax ({{tax_rate}}%):</div>
+          <div class="totals-value">{{currency_symbol}}{{tax}}</div>
+        </div>
+      {{/if}}
+
+      {{#if discount}}
+        <div class="totals-row">
+          <div class="totals-label">Discount:</div>
+          <div class="totals-value">-{{currency_symbol}}{{discount}}</div>
+        </div>
+      {{/if}}
+
+      <div class="totals-row grand-total">
+        <div class="totals-label">Total:</div>
+        <div class="totals-value">{{currency_symbol}}{{total}}</div>
+      </div>
+    </div>
+
+    <!-- CUSTOM FIELDS (if any) -->
+    {{#if customFields}}
+      <div class="custom-fields">
+        <h3>Additional Information</h3>
+        {{#each customFields}}
+          <div class="custom-field-item">
+            <strong>{{this.label}}:</strong> {{this.value}}
+          </div>
+        {{/each}}
+      </div>
+    {{/if}}
+
+    <!-- PAYMENT INFO -->
+    {{#if bankName}}
+      <div class="payment-info">
+        <h3>Payment Information</h3>
+        <div class="payment-detail"><strong>Bank Name:</strong> {{bankName}}</div>
+        {{#if accountNumber}}
+          <div class="payment-detail"><strong>Account Number:</strong> {{accountNumber}}</div>
+        {{/if}}
+        {{#if iban}}
+          <div class="payment-detail"><strong>IBAN:</strong> {{iban}}</div>
+        {{/if}}
+        {{#if bic}}
+          <div class="payment-detail"><strong>BIC/SWIFT:</strong> {{bic}}</div>
+        {{/if}}
+        {{#if routingNumber}}
+          <div class="payment-detail"><strong>Routing Number:</strong> {{routingNumber}}</div>
+        {{/if}}
+      </div>
+    {{/if}}
+
+    <!-- SIGNATURE / FOOTER -->
+    <div class="signature-section">
+      <p><strong>{{userName}}</strong></p>
+      {{#if company_name}}
+        <p>{{company_name}}</p>
+      {{/if}}
+      {{#if company_address}}
+        <p>{{company_address}}</p>
+      {{/if}}
+      {{#if company_phone}}
+        <p>{{company_phone}}</p>
+      {{/if}}
+      {{#if company_email}}
+        <p>{{company_email}}</p>
+      {{/if}}
+    </div>
+  </div>
+</body>
+</html>

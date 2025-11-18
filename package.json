@@ -1,0 +1,39 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@handlebars/allow-prototype-access": "^1.0.5",
+    "@react-oauth/google": "^0.12.2",
+    "bcrypt": "^6.0.0",
+    "body-parser": "^2.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.0.0",
+    "express": "^5.1.0",
+    "google-auth-library": "^10.5.0",
+    "handlebars": "^4.7.8",
+    "html-pdf": "^3.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "jwt-decode": "^4.0.0",
+    "multer": "^2.0.1",
+    "node-fetch": "^2.7.0",
+    "nodemailer": "^7.0.3",
+    "openai": "^5.8.2",
+    "pdfkit": "^0.17.1",
+    "pg": "^8.16.3",
+    "pg-hstore": "^2.3.4",
+    "phantomjs-prebuilt": "^2.1.16",
+    "puppeteer": "^24.11.1",
+    "sequelize": "^6.37.7",
+    "stripe": "^18.2.1",
+    "validator": "^13.15.15"
+  }
+}
