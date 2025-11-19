@@ -33,7 +33,9 @@ const app = express();
 // Get allowed origins from environment variable
 const allowedOrigins = [
   "https://freeinvoice-frontend.onrender.com",
-  "https://frontend-invoice-rz55.onrender.com"
+  "https://frontend-invoice-rz55.onrender.com",
+  "http://localhost:5173/"
+  
 ];
 
 // Add additional frontend URLs from environment variable
