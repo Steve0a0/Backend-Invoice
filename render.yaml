@@ -5,7 +5,7 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: npm install && npx puppeteer browsers install chrome
+    buildCommand: npm install
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
@@ -22,11 +22,6 @@ services:
         value: 10000
       - key: FRONTEND_URL
         value: https://freeinvoice-frontend.onrender.com
-      # Puppeteer configuration
-      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
-        value: false
-      - key: PUPPETEER_CACHE_DIR
-        value: /opt/render/project/src/.cache/puppeteer
       # Add these if you use Google OAuth, Stripe, or email services
       # - key: GOOGLE_CLIENT_ID
       #   sync: false
