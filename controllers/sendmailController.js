@@ -291,12 +291,12 @@ const sendInvoiceEmail = async (req, res) => {
     });
      
     if (!invoice) {
-      return res.status(404).json({ error: "Invoice not found." });
-    }
+        return res.status(404).json({ error: "Invoice not found." });
+      }
 
-    // Generate payment links if credentials exist
-    let paypalPaymentLink = null;
-    let stripePaymentLink = null;
+      // Generate payment links if credentials exist
+      let paypalPaymentLink = null;
+      let stripePaymentLink = null;
 
     if (emailSettings.paypalClientId && emailSettings.paypalSecret) {
       try {
@@ -314,39 +314,84 @@ const sendInvoiceEmail = async (req, res) => {
       }
     }
 
-    // Prepare placeholder data for HTML
-    const customFieldData = await prepareCustomFieldsForTemplate(invoice.customFields || {}, userId);
-    
-    const placeholderData = {
-      // Client information
-      client_name: invoice.client,
-      clientName: invoice.client,
-      client_email: invoice.clientEmail || "",
-      client_address: invoice.clientAddress || "N/A",
+      // Prepare placeholder data for HTML
+      const customFieldData = await prepareCustomFieldsForTemplate(invoice.customFields || {}, userId);
+
+      // Map tasks into a plain array for Handlebars templates
+      const mappedTasks = (invoice.tasks || []).map(task => {
+        const rateValue = typeof task.rate === "number" ? task.rate.toFixed(2) : task.rate ?? null;
+        const unitPriceValue = typeof task.unitPrice === "number" ? task.unitPrice.toFixed(2) : task.unitPrice ?? null;
+        const totalValue = typeof task.total === "number" ? task.total.toFixed(2) : task.total ?? null;
+        const amountValue = typeof task.amount === "number"
+          ? task.amount.toFixed(2)
+          : totalValue;
+
+        return {
+          description: task.description,
+          hours: task.hours,
+          rate: rateValue,
+          quantity: task.quantity,
+          unitPrice: unitPriceValue,
+          days: task.days,
+          amount: amountValue,
+          total: totalValue,
+        };
+      });
+
+      // Build a generic custom_fields array for templates that expect label/value pairs
+      const customFieldsArray = Object.entries(customFieldData || {}).map(([key, value]) => ({
+        label: key,
+        value,
+      }));
       
+      const subtotalValue = Number(invoice.totalAmount || 0);
+      const taxAmountValue = 0;
+      const discountValue = 0;
+      const formattedTax = taxAmountValue > 0 ? taxAmountValue.toFixed(2) : null;
+      const formattedDiscount = discountValue > 0 ? discountValue.toFixed(2) : null;
+
+      const placeholderData = {
+        // Client information
+        client_name: invoice.client,
+        clientName: invoice.client,
+        // Legacy key for older templates (e.g. invoice.hbs)
+        client: invoice.client,
+        client_email: invoice.clientEmail || "",
+        client_address: invoice.clientAddress || "N/A",
+        
       // Company information (from user model)
-      company_name: user.companyName || "Your Company",
-      company_logo: user.companyLogo ? imageToBase64(user.companyLogo) : null,
-      company_email: user.email || emailSettings.email,
-      company_address: user.email || emailSettings.email, // Use email as address fallback
-      companyLogo: user.companyLogo ? imageToBase64(user.companyLogo) : null,
-      
-      // Invoice details
-      invoice_number: invoice.invoiceNumber || invoice.id,
-      invoiceId: invoice.id,
-      invoice_date: new Date(invoice.date).toLocaleDateString("en-US"),
-      date: new Date(invoice.date).toLocaleDateString("en-US"),
-      due_date: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString("en-US") : "N/A",
+        company_name: user.companyName || "Your Company",
+        company_logo: user.companyLogo ? imageToBase64(user.companyLogo) : null,
+        company_email: user.email || emailSettings.email,
+        company_address: user.email || emailSettings.email, // Use email as address fallback
+        companyLogo: user.companyLogo ? imageToBase64(user.companyLogo) : null,
+        // Legacy user object for older templates that expect {{user.name}}
+        user: {
+          name: user.name || emailSettings.email,
+        },
+        
+        // Invoice details
+        invoice_number: invoice.invoiceNumber || invoice.id,
+        invoiceId: invoice.id,
+        // Legacy _id field for older templates
+        _id: invoice.id,
+        invoice_date: new Date(invoice.date).toLocaleDateString("en-US"),
+        date: new Date(invoice.date).toLocaleDateString("en-US"),
+        due_date: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString("en-US") : "N/A",
       status: invoice.status || "Draft",
       
       // Amount and currency
-      subtotal: invoice.totalAmount.toFixed(2),
-      tax_rate: 0,
-      tax_amount: "0.00",
-      total_amount: invoice.totalAmount.toFixed(2),
-      totalAmount: invoice.totalAmount.toFixed(2),
-      currency: invoice.currency || "USD",
-      currencySymbol: getCurrencySymbol(invoice.currency || "USD"),
+        subtotal: subtotalValue.toFixed(2),
+        tax_rate: 0,
+        tax_amount: taxAmountValue.toFixed(2),
+        total_amount: subtotalValue.toFixed(2),
+        totalAmount: subtotalValue.toFixed(2),
+        // Legacy fields used by some templates
+        tax: formattedTax,
+        discount: formattedDiscount,
+        total: subtotalValue.toFixed(2),
+        currency: invoice.currency || "USD",
+        currencySymbol: getCurrencySymbol(invoice.currency || "USD"),
       currency_symbol: getCurrencySymbol(invoice.currency || "USD"),
       
       // Work details
@@ -372,29 +417,22 @@ const sendInvoiceEmail = async (req, res) => {
       additionalInfo: user.additionalInfo || null,
       
       // Payment links
-      paypalPaymentLink,
-      stripePaymentLink,
-      
-      // Tasks - include all flexible structure fields
-      tasks: (invoice.tasks || []).map(task => ({
-        description: task.description,
-        hours: task.hours,
-        rate: task.rate ? task.rate.toFixed(2) : null,
-        quantity: task.quantity,
-        unitPrice: task.unitPrice ? task.unitPrice.toFixed(2) : null,
-        days: task.days,
-        amount: task.amount ? task.amount.toFixed(2) : null,
-        total: task.total ? task.total.toFixed(2) : null
-      })),
-      
-      // Custom fields
-      has_custom_fields: customFieldData.custom_fields && customFieldData.custom_fields.length > 0,
-      custom_fields: customFieldData.custom_fields || [],
-      
-      // Custom fields - spread them into the placeholder data
-      ...customFieldData,
-    };
-    
+        paypalPaymentLink,
+        stripePaymentLink,
+        
+        // Tasks / line items
+        tasks: mappedTasks,
+        items: mappedTasks, // legacy templates expect {{#each items}}
+        
+        // Custom fields
+        has_custom_fields: customFieldsArray.length > 0,
+        custom_fields: customFieldsArray,
+        customFields: customFieldsArray, // legacy templates expect camelCase
+        
+        // Custom fields - spread them into the placeholder data
+        ...customFieldData,
+      };
+
     // Personalize email message and subject
     const personalizedMessage = message.replace(/{{(.*?)}}/g, (_, key) => placeholderData[key.trim()] || "");
     const personalizedSubject = subject.replace(/{{(.*?)}}/g, (_, key) => placeholderData[key.trim()] || "");
@@ -422,9 +460,9 @@ const sendInvoiceEmail = async (req, res) => {
     }
 
     if (activeTemplateHTML) {
-      // Compile template and replace placeholders
-      const compiledTemplate = handlebars.compile(activeTemplateHTML);
-      const finalHtml = compiledTemplate(placeholderData);
+        // Compile template and replace placeholders
+        const compiledTemplate = handlebars.compile(activeTemplateHTML);
+        const finalHtml = compiledTemplate(placeholderData);
 
       // Generate PDF buffer from HTML using Puppeteer
       let pdfBuffer = null;
