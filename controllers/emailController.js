@@ -2,7 +2,16 @@ const Invoice = require("../model/Invoice");
 const fs = require("fs");
 const path = require("path");
 const handlebars = require("handlebars");
-const puppeteer = require("puppeteer");
+let puppeteer;
+let chromium;
+try {
+  puppeteer = require("puppeteer-core");
+  chromium = require("@sparticuz/chromium");
+} catch (e) {
+  console.error('⚠️ Puppeteer or Chromium not available:', e.message);
+  puppeteer = null;
+  chromium = null;
+}
 
 // Allow insecure prototype access for Handlebars
 const { allowInsecurePrototypeAccess } = require("@handlebars/allow-prototype-access");
@@ -32,7 +41,16 @@ const generateInvoicePDF = async (req, res) => {
         });
 
         // Generate PDF with Puppeteer
-        const browser = await puppeteer.launch();
+        if (!puppeteer || !chromium) {
+            return res.status(500).json({ message: 'PDF generation is not available' });
+        }
+        
+        const browser = await puppeteer.launch({
+            args: chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            executablePath: await chromium.executablePath(),
+            headless: chromium.headless,
+        });
         const page = await browser.newPage();
         await page.setContent(html, { waitUntil: "domcontentloaded" });
         const pdfBuffer = Buffer.from(await page.pdf({ format: "A4" })); // Convert Uint8Array to Buffer
