@@ -434,35 +434,28 @@ const sendInvoiceEmail = async (req, res) => {
       let pdfBuffer = null;
       
       if (!puppeteer || !chromium) {
-        console.error('[PDF] ⚠️ Puppeteer or Chromium module not available');
+        // Puppeteer or Chromium not available
       } else {
         try {
-          console.log('[PDF] 🚀 Starting Puppeteer browser...');
           const browser = await puppeteer.launch({
             args: chromium.args,
             defaultViewport: chromium.defaultViewport,
             executablePath: await chromium.executablePath(),
             headless: chromium.headless,
           });
-          console.log('[PDF] ✅ Browser launched successfully');
           
           const page = await browser.newPage();
           await page.emulateMediaType('screen');
-          console.log('[PDF] 📄 Setting HTML content...');
           await page.setContent(finalHtml, { waitUntil: 'networkidle0' });
           
-          console.log('[PDF] 🖨️ Generating PDF...');
           pdfBuffer = await page.pdf({
             printBackground: true,
             preferCSSPageSize: true,
             margin: { top: 0, right: 0, bottom: 0, left: 0 }
           });
-          console.log(`[PDF] ✅ PDF generated successfully (${pdfBuffer.length} bytes)`);
           
           await browser.close();
         } catch (puppeteerErr) {
-          console.error('[PDF] ❌ Puppeteer error:', puppeteerErr.message);
-          console.error('[PDF] Stack:', puppeteerErr.stack);
           pdfBuffer = null;
         }
       }
