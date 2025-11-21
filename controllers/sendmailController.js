@@ -402,27 +402,23 @@ const sendInvoiceEmail = async (req, res) => {
     // Set email attachments - only include PDF if template is provided
     const attachments = [];
     
-    // Decide which template HTML to use for PDF generation.
-    // Priority: client-provided template (newly selected) > invoice's saved template
+    // Only generate PDF if clientProvidedTemplateHTML is present or forceClientTemplate is true
     let activeTemplateHTML = null;
-    
     if (clientProvidedTemplateHTML) {
-      // User selected a new template in the send modal - use it
       activeTemplateHTML = clientProvidedTemplateHTML;
-    } else if (invoice.invoiceTemplateId && !forceClientTemplate) {
-      // No new template selected, use the invoice's saved template
-      try {
-        const InvoiceTemplate = require("../model/InvoiceTemplate");
-        const dbTemplate = await InvoiceTemplate.findByPk(invoice.invoiceTemplateId);
-        if (dbTemplate && dbTemplate.templateHTML) {
-          activeTemplateHTML = dbTemplate.templateHTML;
+    } else if (forceClientTemplate) {
+      // If forceClientTemplate is true, use the saved template
+      if (invoice.invoiceTemplateId) {
+        try {
+          const InvoiceTemplate = require("../model/InvoiceTemplate");
+          const dbTemplate = await InvoiceTemplate.findByPk(invoice.invoiceTemplateId);
+          if (dbTemplate && dbTemplate.templateHTML) {
+            activeTemplateHTML = dbTemplate.templateHTML;
+          }
+        } catch (err) {
+          // Failed to fetch template from database
         }
-      } catch (err) {
-        // Failed to fetch template from database
       }
-    }
-    
-    if (!activeTemplateHTML) {
     }
 
     if (activeTemplateHTML) {
