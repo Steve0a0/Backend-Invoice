@@ -5,10 +5,13 @@ const { Invoice, Task } = require("../model/Invoice"); // ✅ correct way
 const path = require("path");
 const handlebars = require("handlebars");
 let puppeteer;
+let chromium;
 try {
-  puppeteer = require("puppeteer");
+  puppeteer = require("puppeteer-core");
+  chromium = require("@sparticuz/chromium");
 } catch (e) {
   puppeteer = null;
+  chromium = null;
 }
 const { getCurrencySymbol } = require("../utils/currencyHelper");
 const { logActivity } = require("../utils/activityLogger");
@@ -430,25 +433,16 @@ const sendInvoiceEmail = async (req, res) => {
       // Generate PDF buffer from HTML using Puppeteer
       let pdfBuffer = null;
       
-      if (!puppeteer) {
-        console.error('[PDF] ⚠️ Puppeteer module not available');
+      if (!puppeteer || !chromium) {
+        console.error('[PDF] ⚠️ Puppeteer or Chromium module not available');
       } else {
         try {
           console.log('[PDF] 🚀 Starting Puppeteer browser...');
           const browser = await puppeteer.launch({
-            headless: 'new',
-            args: [
-              "--no-sandbox",
-              "--disable-setuid-sandbox",
-              "--disable-dev-shm-usage",
-              "--disable-accelerated-2d-canvas",
-              "--no-first-run",
-              "--no-zygote",
-              "--single-process",
-              "--disable-gpu",
-              "--font-render-hinting=none"
-            ],
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+            args: chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            executablePath: await chromium.executablePath(),
+            headless: chromium.headless,
           });
           console.log('[PDF] ✅ Browser launched successfully');
           

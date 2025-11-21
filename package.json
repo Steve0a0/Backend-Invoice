@@ -13,6 +13,7 @@
   "dependencies": {
     "@handlebars/allow-prototype-access": "^1.0.5",
     "@react-oauth/google": "^0.12.2",
+    "@sparticuz/chromium": "^141.0.0",
     "bcrypt": "^6.0.0",
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
@@ -29,7 +30,7 @@
     "pdfkit": "^0.17.1",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
-    "puppeteer": "^24.11.1",
+    "puppeteer-core": "^24.31.0",
     "sequelize": "^6.37.7",
     "stripe": "^18.2.1",
     "validator": "^13.15.15"

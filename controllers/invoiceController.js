@@ -4,11 +4,14 @@ const fs = require("fs");
 const path = require("path");
 const handlebars = require("handlebars");
 let puppeteer;
+let chromium;
 try {
-  puppeteer = require("puppeteer");
+  puppeteer = require("puppeteer-core");
+  chromium = require("@sparticuz/chromium");
 } catch (e) {
-  console.error('⚠️ Puppeteer not available:', e.message);
+  console.error('⚠️ Puppeteer or Chromium not available:', e.message);
   puppeteer = null;
+  chromium = null;
 }
 const User = require("../model/User");
 const { getCurrencySymbol } = require("../utils/currencyHelper");
@@ -854,24 +857,15 @@ exports.downloadInvoice = async (req, res) => {
     // Generate PDF using Puppeteer first for browser-accurate rendering
     let buffer;
     try {
-      if (!puppeteer) {
+      if (!puppeteer || !chromium) {
         return res.status(500).json({ message: 'PDF generation is not available' });
       }
       
       const browser = await puppeteer.launch({
-        headless: 'new',
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-accelerated-2d-canvas",
-          "--no-first-run",
-          "--no-zygote",
-          "--single-process",
-          "--disable-gpu",
-          "--font-render-hinting=none"
-        ],
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
       });
       const page = await browser.newPage();
       await page.emulateMediaType('screen'); // ensure we use the same CSS as the preview
