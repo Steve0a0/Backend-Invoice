@@ -3,12 +3,12 @@ const { calculateNextRecurringDate } = require("../services/recurringInvoiceSche
 const fs = require("fs");
 const path = require("path");
 const handlebars = require("handlebars");
-const pdf = require("html-pdf");
 let puppeteer;
 try {
   puppeteer = require("puppeteer");
 } catch (e) {
-  puppeteer = null; // optional dependency; we'll fall back to html-pdf
+  console.error('⚠️ Puppeteer not available:', e.message);
+  puppeteer = null;
 }
 const User = require("../model/User");
 const { getCurrencySymbol } = require("../utils/currencyHelper");
@@ -854,45 +854,35 @@ exports.downloadInvoice = async (req, res) => {
     // Generate PDF using Puppeteer first for browser-accurate rendering
     let buffer;
     try {
-      if (puppeteer) {
-        const browser = await puppeteer.launch({
-          args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--font-render-hinting=none",
-            "--disable-gpu"
-          ]
-        });
-        const page = await browser.newPage();
-        await page.emulateMediaType('screen'); // ensure we use the same CSS as the preview
-        await page.setContent(html, { waitUntil: 'networkidle0' });
-        buffer = await page.pdf({
-          printBackground: true,
-          preferCSSPageSize: true,
-          margin: { top: 0, right: 0, bottom: 0, left: 0 }
-        });
-        await browser.close();
-        console.log('[DOWNLOAD] PDF created with Puppeteer, size:', buffer.length, 'bytes');
+      if (!puppeteer) {
+        return res.status(500).json({ message: 'PDF generation is not available' });
       }
-    } catch (puppeteerErr) {
-      console.warn('[DOWNLOAD] Puppeteer failed, falling back to html-pdf:', puppeteerErr.message);
-    }
-
-    if (!buffer) {
-      buffer = await new Promise((resolve, reject) => {
-        pdf.create(html, { format: 'A4' }).toBuffer((err, buf) => {
-          if (err) {
-            return reject(err);
-          }
-          resolve(buf);
-        });
-      }).catch(err => {
-        console.error('Error generating PDF (fallback):', err);
-        return null;
+      
+      const browser = await puppeteer.launch({
+        headless: 'new',
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-accelerated-2d-canvas",
+          "--no-first-run",
+          "--no-zygote",
+          "--single-process",
+          "--disable-gpu",
+          "--font-render-hinting=none"
+        ],
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
       });
-    }
-
-    if (!buffer) {
+      const page = await browser.newPage();
+      await page.emulateMediaType('screen'); // ensure we use the same CSS as the preview
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      buffer = await page.pdf({
+        printBackground: true,
+        preferCSSPageSize: true,
+        margin: { top: 0, right: 0, bottom: 0, left: 0 }
+      });
+      await browser.close();
+    } catch (puppeteerErr) {
       return res.status(500).json({ message: 'Failed to generate PDF' });
     }
 

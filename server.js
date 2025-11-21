@@ -22,6 +22,7 @@ const userRoutes = require("./routes/userRoutes");
 const emailSettingsRoutes = require("./routes/emailSettingsRoutes");
 const webhookRoutes = require("./routes/webhookRoutes");
 const invoiceTemplateRoutes = require("./routes/invoiceTemplateRoutes");
+const testRoutes = require("./routes/testRoutes");
 const seedRoute = require("./routes/adminRoutes");
 const activityRoutes = require("./routes/activityRoutes");
 const customFieldRoutes = require("./routes/customFieldRoutes");
@@ -34,7 +35,8 @@ const app = express();
 const allowedOrigins = [
   "https://freeinvoice-frontend.onrender.com",
   "https://frontend-invoice-rz55.onrender.com",
-  "http://localhost:5173/"
+  "http://localhost:5173",
+  "http://localhost:3000",
   
 ];
 
@@ -137,6 +139,7 @@ app.use("/api", webhookRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/email-settings", emailSettingsRoutes);
 app.use("/api", sendmailRoutes);
+app.use("/api", testRoutes); // internal test route for Puppeteer verification
 app.use("/api/templates", templateRoutes);
 app.use(authRoutes);
 app.use("/api", emailRoutes);

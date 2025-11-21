@@ -8,7 +8,6 @@ const {
 const { authenticate } = require("../middleware/authh");
 const InvoiceTemplate = require('../model/InvoiceTemplate');
 const handlebars = require('handlebars');
-const pdf = require('html-pdf'); // ✅ added html-pdf
 
 const router = express.Router();
 

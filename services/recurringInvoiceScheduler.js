@@ -259,7 +259,6 @@ async function processRecurringInvoices() {
             if (emailSettings && user && emailSettings.email) {
               const handlebars = require("handlebars");
               const nodemailer = require("nodemailer");
-              const pdf = require("html-pdf");
               
               // Get email template if specified, otherwise use default
               let emailSubject = `Invoice ${newInvoice.invoiceNumber || newInvoice.id} - ${newInvoice.workType || 'Your Invoice'}`;
@@ -383,12 +382,24 @@ async function processRecurringInvoices() {
                     const compiledTemplate = handlebars.compile(invoiceTemplate.templateHTML);
                     const finalHtml = compiledTemplate(placeholderData);
                     
-                    // Generate PDF with Puppeteer (screen CSS) for fidelity; fallback to html-pdf
+                    // Generate PDF with Puppeteer only (Render-compatible configuration)
                     let pdfBuffer;
                     try {
                       const puppeteer = require('puppeteer');
                       const browser = await puppeteer.launch({
-                        args: ["--no-sandbox", "--disable-setuid-sandbox", "--font-render-hinting=none", "--disable-gpu"]
+                        headless: 'new',
+                        args: [
+                          "--no-sandbox",
+                          "--disable-setuid-sandbox",
+                          "--disable-dev-shm-usage",
+                          "--disable-accelerated-2d-canvas",
+                          "--no-first-run",
+                          "--no-zygote",
+                          "--single-process",
+                          "--disable-gpu",
+                          "--font-render-hinting=none"
+                        ],
+                        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
                       });
                       const page = await browser.newPage();
                       await page.emulateMediaType('screen');
@@ -396,20 +407,15 @@ async function processRecurringInvoices() {
                       pdfBuffer = await page.pdf({ printBackground: true, preferCSSPageSize: true, margin: { top: 0, right: 0, bottom: 0, left: 0 } });
                       await browser.close();
                     } catch (puppeteerErr) {
-                    }
-                    if (!pdfBuffer) {
-                      pdfBuffer = await new Promise((resolve, reject) => {
-                        pdf.create(finalHtml, { format: "A4" }).toBuffer((err, buffer) => {
-                          if (err) return reject(err);
-                          resolve(buffer);
-                        });
-                      });
+                      pdfBuffer = null;
                     }
                     
-                    attachments.push({
-                      filename: `invoice-${newInvoice.invoiceNumber || newInvoice.id}.pdf`,
-                      content: pdfBuffer,
-                    });
+                    if (pdfBuffer) {
+                      attachments.push({
+                        filename: `invoice-${newInvoice.invoiceNumber || newInvoice.id}.pdf`,
+                        content: pdfBuffer,
+                      });
+                    }
                   } else {
                   }
                 } catch (pdfError) {
