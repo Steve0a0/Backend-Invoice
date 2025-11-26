@@ -29,6 +29,17 @@ const EmailSettings = sequelize.define("EmailSettings", {
     allowNull: true, // Optional: for custom SMTP servers
     defaultValue: 587,
   },
+  deliveryMethod: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: "custom",
+    validate: {
+      isIn: {
+        args: [["custom", "default"]],
+        msg: "Delivery method must be either custom or default",
+      },
+    },
+  },
   paypalClientId: {
     type: DataTypes.STRING,
     allowNull: true,

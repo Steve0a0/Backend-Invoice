@@ -4,6 +4,9 @@ const emailController = require("../controllers/emailController");
 const { getCurrencySymbol } = require("../utils/currencyHelper");
 const { logActivity } = require("../utils/activityLogger");
 const { imageToBase64 } = require("../utils/imageHelper");
+const { buildFinancialSummary } = require("../utils/vatHelper");
+const { buildDeliveryContext } = require("../utils/emailDeliveryHelper");
+const { prepareCustomFieldsForTemplate } = require("../utils/customFieldHelper");
 
 /**
  * Generate next sequential invoice number
@@ -173,19 +176,25 @@ async function processRecurringInvoices() {
         // Start with Draft status, will be updated to Sent if email is successfully sent
         const invoiceNumber = await generateInvoiceNumber();
         
+        const financialSummary = buildFinancialSummary(
+          originalInvoice.tasks || [],
+          originalInvoice.customFields || {},
+          originalInvoice.totalAmount
+        );
+
         const newInvoiceData = {
           invoiceNumber,
           client: originalInvoice.client,
           date: now,
           workType: originalInvoice.workType,
           currency: originalInvoice.currency,
-          totalAmount: originalInvoice.totalAmount,
+          totalAmount: financialSummary.totalWithVat,
           status: "Draft", // Start as Draft, will update to Sent after email is sent
           userId: originalInvoice.userId,
           parentInvoiceId: originalInvoice.id,
           isRecurring: false, // The copy is not recurring
           isFirstRecurringInvoice: originalInvoice.recurringCount === 0, // True only for first invoice
-          customFields: originalInvoice.customFields || {}, // Copy custom fields
+          customFields: financialSummary.updatedCustomFields || {}, // Copy custom fields (with VAT metadata)
           itemStructure: originalInvoice.itemStructure || "hourly", // Copy item structure
         };
 
@@ -251,14 +260,28 @@ async function processRecurringInvoices() {
             const emailSettings = await EmailSettings.findOne({ 
               where: { userId: originalInvoice.userId } 
             });
+            console.log("[RecurringEmail] Loaded email settings", {
+              invoiceId: originalInvoice.id,
+              userId: originalInvoice.userId,
+              hasSettings: !!emailSettings,
+              deliveryMethod: emailSettings?.deliveryMethod,
+            });
             
             const user = await User.findOne({ 
               where: { id: originalInvoice.userId } 
             });
+            console.log("[RecurringEmail] Loaded user", {
+              invoiceId: originalInvoice.id,
+              userId: originalInvoice.userId,
+              hasUser: !!user,
+            });
 
-            if (emailSettings && user && emailSettings.email) {
+            const deliveryContext = buildDeliveryContext(emailSettings, user);
+            if (user && deliveryContext.ready) {
               const handlebars = require("handlebars");
               const nodemailer = require("nodemailer");
+              const businessContactEmail =
+                user.email || emailSettings?.email || deliveryContext.fromAddress;
               
               // Get email template if specified, otherwise use default
               let emailSubject = `Invoice ${newInvoice.invoiceNumber || newInvoice.id} - ${newInvoice.workType || 'Your Invoice'}`;
@@ -286,7 +309,7 @@ async function processRecurringInvoices() {
                     workType: newInvoice.workType || "",
                     company_name: user.companyName || "Your Company",
                     companyLogo: user.companyLogo ? imageToBase64(user.companyLogo) : null,
-                    userName: user.name || emailSettings.email,
+                    userName: user.name || businessContactEmail,
                     // Bank details
                     account_holder_name: user.accountHolderName || "",
                     accountHolderName: user.accountHolderName || "",
@@ -325,58 +348,139 @@ async function processRecurringInvoices() {
               
               // Get invoice PDF template if specified
               if (originalInvoice.invoiceTemplateId) {
+                console.log("[RecurringEmail] Invoice template requested", {
+                  invoiceId: newInvoice.id,
+                  templateId: originalInvoice.invoiceTemplateId,
+                });
                 try {
                   const InvoiceTemplate = require("../model/InvoiceTemplate");
                   const invoiceTemplate = await InvoiceTemplate.findOne({
                     where: { id: originalInvoice.invoiceTemplateId, userId: originalInvoice.userId }
                   });
+                  console.log("[RecurringEmail] Template query result", {
+                    invoiceId: newInvoice.id,
+                    templateFound: !!invoiceTemplate,
+                  });
                   
                   if (invoiceTemplate && invoiceTemplate.templateHTML) {
                     // Prepare placeholder data for PDF
                     const tasks = await Task.findAll({ where: { invoiceId: newInvoice.id } });
-                    
-                    // Convert Sequelize instances to plain objects for Handlebars
+                    console.log("[RecurringEmail] Loaded tasks for PDF", {
+                      invoiceId: newInvoice.id,
+                      taskCount: tasks.length,
+                    });
                     const plainTasks = tasks.map(task => task.get({ plain: true }));
-                    
+
+                    const mappedTasks = plainTasks.map(task => {
+                      const rateValue = typeof task.rate === "number" ? task.rate.toFixed(2) : task.rate ?? null;
+                      const unitPriceValue = typeof task.unitPrice === "number" ? task.unitPrice.toFixed(2) : task.unitPrice ?? null;
+                      const totalValue = typeof task.total === "number" ? task.total.toFixed(2) : task.total ?? null;
+                      const amountValue = typeof task.amount === "number" ? task.amount.toFixed(2) : totalValue;
+
+                      return {
+                        description: task.description,
+                        hours: task.hours,
+                        rate: rateValue,
+                        quantity: task.quantity,
+                        unitPrice: unitPriceValue,
+                        days: task.days,
+                        amount: amountValue,
+                        total: totalValue,
+                      };
+                    });
+
+                    const customFieldData = await prepareCustomFieldsForTemplate(newInvoice.customFields || {}, originalInvoice.userId);
+                    const customFieldsArray = Object.entries(customFieldData || {}).map(([key, value]) => ({
+                      label: key,
+                      value,
+                    }));
+                    const financialSummary = buildFinancialSummary(
+                      plainTasks,
+                      newInvoice.customFields || {},
+                      newInvoice.totalAmount
+                    );
+                    const vatEnabledFlag =
+                      financialSummary.vatDetails.enabled && financialSummary.vatDetails.rate > 0;
+                    const vatRateValue = vatEnabledFlag ? financialSummary.vatDetails.rate : 0;
+                    const vatNumberValue = vatEnabledFlag
+                      ? financialSummary.vatDetails.number || ""
+                      : "";
+                    const vatAmountValue = vatEnabledFlag ? financialSummary.vatAmount : 0;
+                    const subtotalValue = Number(financialSummary.subtotal || 0);
+                    const totalValue = Number(financialSummary.totalWithVat || 0);
+                    const formattedTax = vatEnabledFlag ? vatAmountValue.toFixed(2) : null;
+                    const formattedDiscount = null;
+
                     const placeholderData = {
                       client_name: newInvoice.client,
                       clientName: newInvoice.client,
+                      client: newInvoice.client,
+                      client_email: originalInvoice.clientEmail || "",
+                      client_address: originalInvoice.clientAddress || "N/A",
+
                       company_name: user.companyName || "Your Company",
-                      company_address: user.email || emailSettings.email,
+                      company_logo: user.companyLogo ? imageToBase64(user.companyLogo) : null,
+                      company_email: businessContactEmail,
+                      company_address: businessContactEmail,
                       companyLogo: user.companyLogo ? imageToBase64(user.companyLogo) : null,
+                      user: {
+                        name: user.name || businessContactEmail,
+                      },
+
                       invoice_number: newInvoice.invoiceNumber || newInvoice.id,
                       invoiceId: newInvoice.id,
+                      _id: newInvoice.id,
                       invoice_date: new Date(newInvoice.date).toLocaleDateString("en-US"),
                       date: new Date(newInvoice.date).toLocaleDateString("en-US"),
-                      total_amount: `${getCurrencySymbol(newInvoice.currency || "USD")}${newInvoice.totalAmount}`,
-                      totalAmount: newInvoice.totalAmount.toFixed(2),
+                      due_date: newInvoice.dueDate ? new Date(newInvoice.dueDate).toLocaleDateString("en-US") : null,
+                      status: newInvoice.status || "Draft",
+
+                      subtotal: subtotalValue.toFixed(2),
+                      tax_rate: vatEnabledFlag ? vatRateValue : 0,
+                      tax_amount: vatEnabledFlag ? vatAmountValue.toFixed(2) : "0.00",
+                      total_amount: totalValue.toFixed(2),
+                      totalAmount: totalValue.toFixed(2),
+                      tax: formattedTax,
+                      discount: formattedDiscount,
+                      total: totalValue.toFixed(2),
                       currency: newInvoice.currency || "USD",
                       currencySymbol: getCurrencySymbol(newInvoice.currency || "USD"),
-                      item_structure: originalInvoice.itemStructure || "hourly",
-                      itemStructure: originalInvoice.itemStructure || "hourly",
-                      // Bank details for PDF
-                      accountHolderName: user.accountHolderName || "",
-                      bank_name: user.bankName || "",
-                      bankName: user.bankName || "",
-                      account_name: user.accountName || "",
-                      accountName: user.accountName || "",
-                      account_number: user.accountNumber || "",
-                      accountNumber: user.accountNumber || "",
-                      iban: user.iban || "",
-                      bic: user.bic || "",
-                      sort_code: user.sortCode || "",
-                      sortCode: user.sortCode || "",
-                      swift_code: user.swiftCode || "",
-                      swiftCode: user.swiftCode || "",
-                      routing_number: user.routingNumber || "",
-                      routingNumber: user.routingNumber || "",
-                      bank_address: user.bankAddress || "",
-                      bankAddress: user.bankAddress || "",
-                      additionalInfo: user.additionalInfo || "",
+                      currency_symbol: getCurrencySymbol(newInvoice.currency || "USD"),
+
                       work_type: newInvoice.workType || "",
                       workType: newInvoice.workType || "",
-                      userName: user.name || emailSettings.email,
-                      tasks: plainTasks
+                      item_structure: originalInvoice.itemStructure || "hourly",
+                      itemStructure: originalInvoice.itemStructure || "hourly",
+                      notes: newInvoice.notes || "",
+
+                      userName: user.name || businessContactEmail,
+
+                      accountHolderName: user.accountHolderName || null,
+                      bankName: user.bankName || null,
+                      accountName: user.accountName || null,
+                      accountNumber: user.accountNumber || null,
+                      iban: user.iban || null,
+                      bic: user.bic || null,
+                      sortCode: user.sortCode || null,
+                      swiftCode: user.swiftCode || null,
+                      routingNumber: user.routingNumber || null,
+                      bankAddress: user.bankAddress || null,
+                      additionalInfo: user.additionalInfo || null,
+
+                      vat_enabled: vatEnabledFlag,
+                      vat_rate: vatRateValue,
+                      vat_number: vatNumberValue,
+                      vat_amount: vatAmountValue.toFixed(2),
+
+                      tasks: mappedTasks,
+                      items: mappedTasks,
+
+                      has_custom_fields: customFieldsArray.length > 0,
+                      custom_fields: customFieldsArray,
+                      customFields: customFieldsArray,
+
+                      ...customFieldData,
+                      tax_id: customFieldData.tax_id || vatNumberValue,
                     };
 
                     const compiledTemplate = handlebars.compile(invoiceTemplate.templateHTML);
@@ -407,51 +511,69 @@ async function processRecurringInvoices() {
                         filename: `invoice-${newInvoice.invoiceNumber || newInvoice.id}.pdf`,
                         content: pdfBuffer,
                       });
+                      console.log("[RecurringEmail] PDF generated via Puppeteer", {
+                        invoiceId: newInvoice.id,
+                        templateId: originalInvoice.invoiceTemplateId,
+                      });
                     }
                   } else {
+                    console.warn("[RecurringEmail] Template record missing HTML", {
+                      invoiceId: newInvoice.id,
+                      templateId: originalInvoice.invoiceTemplateId,
+                    });
                   }
                 } catch (pdfError) {
+                  console.error("[RecurringEmail] Failed generating PDF", {
+                    invoiceId: newInvoice.id,
+                    templateId: originalInvoice.invoiceTemplateId,
+                    error: pdfError?.message,
+                  });
                 }
               } else {
+                console.log("[RecurringEmail] No template configured, skipping PDF", {
+                  invoiceId: newInvoice.id,
+                });
               }
 
-              // Configure email transporter
-              const emailDomain = emailSettings.email.split('@')[1]?.toLowerCase();
-              let transporterConfig = {
-                auth: {
-                  user: emailSettings.email,
-                  pass: emailSettings.appPassword,
-                },
-              };
-
-              if (emailDomain && emailDomain.includes('gmail')) {
-                transporterConfig.service = 'Gmail';
-              } else if (emailDomain && (emailDomain.includes('outlook') || emailDomain.includes('hotmail') || emailDomain.includes('live'))) {
-                transporterConfig.host = 'smtp-mail.outlook.com';
-                transporterConfig.port = 587;
-                transporterConfig.secure = false;
-                transporterConfig.tls = { ciphers: 'SSLv3' };
-              } else {
-                transporterConfig.host = emailSettings.smtpHost || 'smtp.office365.com';
-                transporterConfig.port = emailSettings.smtpPort || 587;
-                transporterConfig.secure = false;
-                transporterConfig.tls = { ciphers: 'SSLv3' };
-              }
-
-              const transporter = nodemailer.createTransport(transporterConfig);
+              const transporter = nodemailer.createTransport(deliveryContext.transporterConfig);
               
               // Determine recipient email
-              const recipientEmail = originalInvoice.clientEmail || emailSettings.email;
+              const recipientEmail =
+                originalInvoice.clientEmail ||
+                emailSettings?.email ||
+                deliveryContext.fromAddress;
               
               const mailOptions = {
-                from: emailSettings.email,
+                from: deliveryContext.fromAddress,
                 to: recipientEmail,
                 subject: emailSubject,
                 text: emailContent,
                 attachments: attachments, // Use the attachments array (empty if no PDF)
               };
 
-              await transporter.sendMail(mailOptions);
+              if (deliveryContext.replyToAddress) {
+                mailOptions.replyTo = deliveryContext.replyToAddress;
+              }
+
+              if (deliveryContext.ccAddress) {
+                mailOptions.cc = deliveryContext.ccAddress;
+              }
+
+              try {
+                await transporter.sendMail(mailOptions);
+                console.log("[RecurringEmail] Email sent", {
+                  invoiceId: newInvoice.id,
+                  recipient: recipientEmail,
+                  attachments: attachments.length,
+                });
+              } catch (emailSendError) {
+                console.error("[RecurringEmail] Email send failed", {
+                  invoiceId: newInvoice.id,
+                  recipient: recipientEmail,
+                  error: emailSendError?.message,
+                });
+                throw emailSendError;
+              }
               
               // Update invoice status to "Sent" after successful email delivery
               await newInvoice.update({ status: "Sent" });

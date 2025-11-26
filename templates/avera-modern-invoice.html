@@ -280,6 +280,9 @@
             <p><strong>Due:</strong> {{due_date}}</p>
             {{/if}}
             <p><strong>Status:</strong> {{status}}</p>
+            {{#if vat_number}}
+            <p><strong>VAT Number:</strong> {{vat_number}}</p>
+            {{/if}}
             
             {{#if has_custom_fields}}
             <div class="custom-fields">

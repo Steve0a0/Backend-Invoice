@@ -19,6 +19,7 @@ const { logActivity } = require("../utils/activityLogger");
 const { imageToBase64 } = require("../utils/imageHelper");
 const { prepareCustomFieldsForTemplate } = require("../utils/customFieldHelper");
 const Activity = require("../model/Activity");
+const { buildFinancialSummary } = require("../utils/vatHelper");
 
 // Helper function to generate next invoice number
 async function generateInvoiceNumber() {
@@ -116,7 +117,9 @@ exports.createInvoice = async (req, res) => {
       }
     }
 
-    const totalAmount = tasks.reduce((sum, task) => sum + task.total, 0);
+    const initialCustomFields = customFields ? { ...customFields } : {};
+    const financialSummary = buildFinancialSummary(tasks, initialCustomFields);
+    const totalAmount = financialSummary.totalWithVat;
 
     // Generate sequential invoice number
     const invoiceNumber = await generateInvoiceNumber();
@@ -142,7 +145,7 @@ exports.createInvoice = async (req, res) => {
       notes,
       totalAmount,
       status: status || "Draft", // Use provided status or default to Draft
-      customFields: customFields || {}, // Store custom fields
+      customFields: financialSummary.updatedCustomFields, // Store custom fields (with VAT metadata)
       itemStructure: structure, // Store item structure
     };
 
@@ -473,6 +476,25 @@ exports.updateInvoice = async (req, res) => {
       return res.status(404).json({ message: "Invoice not found or you don't have permission to update it" });
     }
 
+    let mergedCustomFields =
+      customFields !== undefined
+        ? { ...customFields }
+        : (invoice.customFields ? { ...invoice.customFields } : {});
+
+    const existingTaskData = (invoice.tasks || []).map(task => ({
+      description: task.description,
+      total: Number(task.total),
+      hours: task.hours,
+      rate: task.rate,
+      quantity: task.quantity,
+      unitPrice: task.unitPrice,
+      days: task.days,
+      amount: task.amount,
+    }));
+
+    let summaryTasks =
+      tasks && Array.isArray(tasks) ? tasks : existingTaskData;
+
     // Update basic invoice fields
     if (status) invoice.status = status;
     if (client) invoice.client = client;
@@ -481,9 +503,10 @@ exports.updateInvoice = async (req, res) => {
     if (workType) invoice.workType = workType;
     if (currency) invoice.currency = currency;
     if (notes !== undefined) invoice.notes = notes;
-    if (totalAmount !== undefined) invoice.totalAmount = totalAmount;
     if (itemStructure !== undefined) invoice.itemStructure = itemStructure;
-    if (customFields !== undefined) invoice.customFields = customFields;
+    if (customFields !== undefined) {
+      mergedCustomFields = { ...customFields };
+    }
 
     // Update recurring fields
     if (isRecurring !== undefined) invoice.isRecurring = isRecurring;
@@ -557,6 +580,14 @@ exports.updateInvoice = async (req, res) => {
       }
     }
 
+    const financialSummary = buildFinancialSummary(
+      summaryTasks,
+      mergedCustomFields,
+      invoice.totalAmount
+    );
+    invoice.totalAmount = financialSummary.totalWithVat;
+    invoice.customFields = financialSummary.updatedCustomFields;
+
     // Save all changes to the invoice
     await invoice.save();
     console.log('✅ Invoice saved successfully. Current invoiceTemplateId:', invoice.invoiceTemplateId);
@@ -629,6 +660,19 @@ exports.previewInvoice = async (req, res) => {
     const user = await User.findByPk(req.user.id);
     console.log('User found:', user.name);
 
+    const financialSummary = buildFinancialSummary(
+      invoice.tasks || [],
+      invoice.customFields || {},
+      invoice.totalAmount
+    );
+    const vatEnabledFlag =
+      financialSummary.vatDetails.enabled && financialSummary.vatDetails.rate > 0;
+    const vatRateValue = vatEnabledFlag ? financialSummary.vatDetails.rate : 0;
+    const vatNumberValue = vatEnabledFlag
+      ? financialSummary.vatDetails.number || ""
+      : "";
+    const vatAmountValue = vatEnabledFlag ? financialSummary.vatAmount : 0;
+
     // Determine which template to use
     let templateHTML;
     const InvoiceTemplate = require("../model/InvoiceTemplate");
@@ -697,16 +741,21 @@ exports.previewInvoice = async (req, res) => {
         amount: task.amount ? task.amount.toFixed(2) : null,
         total: task.total.toFixed(2)
       })),
-      subtotal: invoice.totalAmount.toFixed(2),
-      tax_rate: 0,
-      tax_amount: "0.00",
-      totalAmount: invoice.totalAmount.toFixed(2),
-      total_amount: invoice.totalAmount.toFixed(2),
+      subtotal: financialSummary.subtotal.toFixed(2),
+      tax_rate: vatEnabledFlag ? vatRateValue : 0,
+      tax_amount: vatEnabledFlag ? vatAmountValue.toFixed(2) : "0.00",
+      totalAmount: financialSummary.totalWithVat.toFixed(2),
+      total_amount: financialSummary.totalWithVat.toFixed(2),
       notes: invoice.notes || "",
+      vat_enabled: vatEnabledFlag,
+      vat_rate: vatRateValue,
+      vat_number: vatNumberValue,
+      vat_amount: vatAmountValue.toFixed(2),
       // Custom fields
       has_custom_fields: customFieldData.custom_fields && customFieldData.custom_fields.length > 0,
       custom_fields: customFieldData.custom_fields || [],
       ...customFieldData,
+      tax_id: customFieldData.tax_id || vatNumberValue,
       // Bank details
       accountHolderName: user.accountHolderName || null,
       bankName: user.bankName || null,

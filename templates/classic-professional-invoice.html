@@ -263,10 +263,13 @@
       <div class="bill-right">
         <strong>Invoice No.</strong> {{invoice_number}}<br>
         <strong>Date:</strong> {{invoice_date}}<br>
-        {{#if due_date}}
+          {{#if due_date}}
           <strong>Due Date:</strong> {{due_date}}
-        {{/if}}
-      </div>
+          {{/if}}
+          {{#if vat_number}}
+          <div><strong>VAT Number:</strong> {{vat_number}}</div>
+          {{/if}}
+        </div>
     </div>
 
     <!-- TABLE -->

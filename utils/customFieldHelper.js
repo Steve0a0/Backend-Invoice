@@ -1,3 +1,5 @@
+const { VAT_FIELD_KEY } = require("./vatHelper");
+
 /**
  * Prepare custom fields for use in templates
  * Converts customFields object into template placeholders
@@ -24,8 +26,15 @@ async function prepareCustomFieldsForTemplate(customFields = {}, userId = null) 
     }
   }
   
+  const isSystemField = (key) =>
+    key === VAT_FIELD_KEY || key.startsWith("_system");
+
   // Add each custom field with its custom placeholder (if available)
   Object.keys(customFields).forEach(key => {
+    if (isSystemField(key)) {
+      return;
+    }
+
     const value = customFields[key];
     
     // Use custom placeholder if available, otherwise use the key

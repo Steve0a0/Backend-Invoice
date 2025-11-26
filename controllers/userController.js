@@ -10,6 +10,7 @@ exports.updateUser = async (req, res) => {
       companyLogo,
       bankName,
       accountName,
+      accountHolderName,
       accountNumber,
       iban,
       bic,
@@ -42,6 +43,7 @@ exports.updateUser = async (req, res) => {
     if (companyLogo !== undefined) user.companyLogo = companyLogo; // Allow null to remove logo
     if (bankName !== undefined) user.bankName = bankName;
     if (accountName !== undefined) user.accountName = accountName;
+    if (accountHolderName !== undefined) user.accountHolderName = accountHolderName;
     if (accountNumber !== undefined) user.accountNumber = accountNumber;
     if (iban !== undefined) user.iban = iban;
     if (bic !== undefined) user.bic = bic;

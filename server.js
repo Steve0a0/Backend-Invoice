@@ -106,6 +106,9 @@ const startServer = async () => {
       // Sync without alter to avoid ENUM conversion issues
       await sequelize.sync();
 
+      // Ensure EmailSettings picks up new columns (like deliveryMethod) without altering every table
+      await EmailSettings.sync({ alter: true });
+
       // Auto-migrate existing invoices to activities if Activity table is empty
       const activityCount = await Activity.count();
       if (activityCount === 0) {

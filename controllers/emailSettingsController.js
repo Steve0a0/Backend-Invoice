@@ -2,7 +2,12 @@ const EmailSettings = require("../model/EmailSettings");
 const { logActivity } = require("../utils/activityLogger");
 
 exports.saveEmailSettings = async (req, res) => {
-  const { email, appPassword } = req.body;
+  const { email, appPassword, deliveryMethod = "custom" } = req.body;
+  const normalizedMethod = deliveryMethod === "default" ? "default" : "custom";
+
+  if (normalizedMethod === "custom" && (!email || !appPassword)) {
+    return res.status(400).json({ error: "Email and app password are required for custom delivery." });
+  }
 
   try {
     const userId = req.user.id; // Ensure the user is authenticated
@@ -10,42 +15,73 @@ exports.saveEmailSettings = async (req, res) => {
 
     const existingSettings = await EmailSettings.findOne({ where: { userId } });
 
+    const payload = { deliveryMethod: normalizedMethod };
+
+    if (normalizedMethod === "custom") {
+      payload.email = email;
+      payload.appPassword = appPassword;
+    } else {
+      if (email) {
+        payload.email = email;
+      }
+      if (appPassword) {
+        payload.appPassword = appPassword;
+      }
+    }
+
     if (existingSettings) {
       // Update user email and app password only
-      await existingSettings.update({ email, appPassword });
+      await existingSettings.update(payload);
 
       // Log activity
       await logActivity(
         userId,
         'email_settings_updated',
-        `Email settings updated (${email})`,
+        normalizedMethod === 'default'
+          ? 'Email delivery switched to InvoiceGen default sender'
+          : `Email settings updated (${email})`,
         null,
-        { email }
+        { email: payload.email || existingSettings.email, deliveryMethod: normalizedMethod }
       );
 
       console.log("Updated user email settings.");
       return res.status(200).json({
         message: "User email settings updated successfully!",
-        settings: { email: existingSettings.email, appPassword: existingSettings.appPassword },
+        settings: {
+          email: existingSettings.email,
+          appPassword: existingSettings.appPassword,
+          deliveryMethod: normalizedMethod,
+        },
       });
     }
 
     // Create new entry if no settings exist
-    const newSettings = await EmailSettings.create({ userId, email, appPassword });
+    const newSettings = await EmailSettings.create({
+      userId,
+      email: payload.email || null,
+      appPassword: payload.appPassword || null,
+      deliveryMethod: normalizedMethod,
+    });
 
     // Log activity
     await logActivity(
       userId,
       'email_settings_updated',
-      `Email settings configured (${email})`,
+      normalizedMethod === 'default'
+        ? 'Email delivery configured to use InvoiceGen default sender'
+        : `Email settings configured (${email})`,
       null,
-      { email }
+      { email: payload.email || null, deliveryMethod: normalizedMethod }
     );
 
     console.log("Saved new user email settings.");
     res.status(201).json({
       message: "User email settings saved successfully!",
-      settings: { email: newSettings.email, appPassword: newSettings.appPassword },
+      settings: {
+        email: newSettings.email,
+        appPassword: newSettings.appPassword,
+        deliveryMethod: newSettings.deliveryMethod,
+      },
     });
   } catch (error) {
     console.error("Error saving user email settings:", error);

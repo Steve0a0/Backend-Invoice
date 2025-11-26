@@ -17,6 +17,8 @@ const { getCurrencySymbol } = require("../utils/currencyHelper");
 const { logActivity } = require("../utils/activityLogger");
 const { prepareCustomFieldsForTemplate } = require("../utils/customFieldHelper");
 const { imageToBase64 } = require("../utils/imageHelper");
+const { buildFinancialSummary } = require("../utils/vatHelper");
+const { buildDeliveryContext } = require("../utils/emailDeliveryHelper");
 
 // Register custom Handlebars helpers
 handlebars.registerHelper('eq', function(a, b) {
@@ -265,11 +267,6 @@ const sendInvoiceEmail = async (req, res) => {
 
     // Fetch email settings
     const emailSettings = await EmailSettings.findOne({ where: { userId } });
-    if (!emailSettings || !emailSettings.email || !emailSettings.appPassword) {
-      return res.status(400).json({
-        error: "Email settings not found or incomplete. Please configure them first.",
-      });
-    }
 
     // Fetch user information for company details
     const User = require("../model/User");
@@ -277,6 +274,16 @@ const sendInvoiceEmail = async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
+
+    const deliveryContext = buildDeliveryContext(emailSettings, user);
+    if (!deliveryContext.ready) {
+      return res.status(400).json({
+        error: deliveryContext.errorMessage,
+      });
+    }
+
+    const businessContactEmail =
+      user.email || emailSettings?.email || deliveryContext.fromAddress;
 
     // Fetch the invoice details
     const invoice = await Invoice.findOne({ 
@@ -316,6 +323,23 @@ const sendInvoiceEmail = async (req, res) => {
 
       // Prepare placeholder data for HTML
       const customFieldData = await prepareCustomFieldsForTemplate(invoice.customFields || {}, userId);
+      const financialSummary = buildFinancialSummary(
+        invoice.tasks || [],
+        invoice.customFields || {},
+        invoice.totalAmount
+      );
+      const vatEnabledFlag =
+        financialSummary.vatDetails.enabled && financialSummary.vatDetails.rate > 0;
+      const vatRateValue = vatEnabledFlag ? financialSummary.vatDetails.rate : 0;
+      const vatNumberValue = vatEnabledFlag
+        ? financialSummary.vatDetails.number || ""
+        : "";
+      const vatAmountValue = vatEnabledFlag ? financialSummary.vatAmount : 0;
+      const subtotalValue = Number(financialSummary.subtotal || 0);
+      const totalValue = Number(financialSummary.totalWithVat || 0);
+      const discountValue = 0;
+      const formattedTax = vatEnabledFlag ? vatAmountValue.toFixed(2) : null;
+      const formattedDiscount = discountValue > 0 ? discountValue.toFixed(2) : null;
 
       // Map tasks into a plain array for Handlebars templates
       const mappedTasks = (invoice.tasks || []).map(task => {
@@ -343,13 +367,6 @@ const sendInvoiceEmail = async (req, res) => {
         label: key,
         value,
       }));
-      
-      const subtotalValue = Number(invoice.totalAmount || 0);
-      const taxAmountValue = 0;
-      const discountValue = 0;
-      const formattedTax = taxAmountValue > 0 ? taxAmountValue.toFixed(2) : null;
-      const formattedDiscount = discountValue > 0 ? discountValue.toFixed(2) : null;
-
       const placeholderData = {
         // Client information
         client_name: invoice.client,
@@ -362,12 +379,12 @@ const sendInvoiceEmail = async (req, res) => {
       // Company information (from user model)
         company_name: user.companyName || "Your Company",
         company_logo: user.companyLogo ? imageToBase64(user.companyLogo) : null,
-        company_email: user.email || emailSettings.email,
-        company_address: user.email || emailSettings.email, // Use email as address fallback
+        company_email: businessContactEmail,
+        company_address: businessContactEmail,
         companyLogo: user.companyLogo ? imageToBase64(user.companyLogo) : null,
         // Legacy user object for older templates that expect {{user.name}}
         user: {
-          name: user.name || emailSettings.email,
+          name: user.name || businessContactEmail,
         },
         
         // Invoice details
@@ -382,14 +399,14 @@ const sendInvoiceEmail = async (req, res) => {
       
       // Amount and currency
         subtotal: subtotalValue.toFixed(2),
-        tax_rate: 0,
-        tax_amount: taxAmountValue.toFixed(2),
-        total_amount: subtotalValue.toFixed(2),
-        totalAmount: subtotalValue.toFixed(2),
+        tax_rate: vatEnabledFlag ? vatRateValue : 0,
+        tax_amount: vatEnabledFlag ? vatAmountValue.toFixed(2) : "0.00",
+        total_amount: totalValue.toFixed(2),
+        totalAmount: totalValue.toFixed(2),
         // Legacy fields used by some templates
         tax: formattedTax,
         discount: formattedDiscount,
-        total: subtotalValue.toFixed(2),
+        total: totalValue.toFixed(2),
         currency: invoice.currency || "USD",
         currencySymbol: getCurrencySymbol(invoice.currency || "USD"),
       currency_symbol: getCurrencySymbol(invoice.currency || "USD"),
@@ -401,7 +418,7 @@ const sendInvoiceEmail = async (req, res) => {
       notes: invoice.notes || "",
       
       // User/sender information
-      userName: user.name || emailSettings.email,
+      userName: user.name || businessContactEmail,
       
       // Bank details
       accountHolderName: user.accountHolderName || null,
@@ -419,6 +436,10 @@ const sendInvoiceEmail = async (req, res) => {
       // Payment links
         paypalPaymentLink,
         stripePaymentLink,
+        vat_enabled: vatEnabledFlag,
+        vat_rate: vatRateValue,
+        vat_number: vatNumberValue,
+        vat_amount: vatAmountValue.toFixed(2),
         
         // Tasks / line items
         tasks: mappedTasks,
@@ -431,6 +452,7 @@ const sendInvoiceEmail = async (req, res) => {
         
         // Custom fields - spread them into the placeholder data
         ...customFieldData,
+        tax_id: customFieldData.tax_id || vatNumberValue,
       };
 
     // Personalize email message and subject
@@ -502,53 +524,24 @@ const sendInvoiceEmail = async (req, res) => {
       }
     }
 
-    // Configure email transporter with dynamic settings
-    let transporterConfig = {
-      auth: {
-        user: emailSettings.email,
-        pass: emailSettings.appPassword,
-      },
-    };
-
-    // Determine SMTP settings based on email domain
-    const emailDomain = emailSettings.email.split('@')[1]?.toLowerCase();
-    
-    if (emailDomain && emailDomain.includes('gmail')) {
-      transporterConfig.service = 'Gmail';
-    } else if (emailDomain && (emailDomain.includes('outlook') || emailDomain.includes('hotmail') || emailDomain.includes('live'))) {
-      transporterConfig.host = 'smtp-mail.outlook.com';
-      transporterConfig.port = 587;
-      transporterConfig.secure = false;
-      transporterConfig.tls = {
-        ciphers: 'SSLv3'
-      };
-    } else if (emailDomain && emailDomain.includes('office365.com')) {
-      transporterConfig.host = 'smtp.office365.com';
-      transporterConfig.port = 587;
-      transporterConfig.secure = false;
-      transporterConfig.tls = {
-        ciphers: 'SSLv3'
-      };
-    } else {
-      // Generic SMTP settings for custom domains
-      transporterConfig.host = emailSettings.smtpHost || 'smtp.office365.com';
-      transporterConfig.port = emailSettings.smtpPort || 587;
-      transporterConfig.secure = false;
-      transporterConfig.tls = {
-        ciphers: 'SSLv3'
-      };
-    }
-
-    const transporter = nodemailer.createTransport(transporterConfig);
+    const transporter = nodemailer.createTransport(deliveryContext.transporterConfig);
 
     // Setup email
     const mailOptions = {
-      from: emailSettings.email,
+      from: deliveryContext.fromAddress,
       to: recipientEmail,
       subject: personalizedSubject,
       text: personalizedMessage,
       attachments,
     };
+
+    if (deliveryContext.replyToAddress) {
+      mailOptions.replyTo = deliveryContext.replyToAddress;
+    }
+
+    if (deliveryContext.ccAddress) {
+      mailOptions.cc = deliveryContext.ccAddress;
+    }
 
     // Send email
     const info = await transporter.sendMail(mailOptions);
