@@ -9,7 +9,8 @@ const {
   triggerRecurringProcessing,
   previewInvoice,
   downloadInvoice,
-  stopRecurring
+  stopRecurring,
+  convertQuote
 } = require("../controllers/invoiceController");
 const { authenticate } = require("../middleware/authh"); // Middleware for user authentication
 const router = express.Router();
@@ -26,6 +27,7 @@ router.get("/:id/download", authenticate, downloadInvoice);
 router.patch("/:id", authenticate, updateInvoice);
 router.patch("/:id/recurring", authenticate, updateRecurringInvoice);
 router.post("/:id/stop-recurring", authenticate, stopRecurring);
+router.post("/:id/convert", authenticate, convertQuote);
 router.delete("/:id", authenticate, deleteInvoice);
 
 module.exports = router;

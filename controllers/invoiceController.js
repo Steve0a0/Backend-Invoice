@@ -22,13 +22,15 @@ const Activity = require("../model/Activity");
 const { buildFinancialSummary } = require("../utils/vatHelper");
 
 // Helper function to generate next invoice number
-async function generateInvoiceNumber() {
+async function generateInvoiceNumber(documentType = "invoice") {
   try {
+    const prefix = documentType === "quote" ? "QUO" : "INV";
     // Find the last invoice with an invoice number
     const lastInvoice = await Invoice.findOne({
       where: {
+        documentType,
         invoiceNumber: {
-          [require('sequelize').Op.ne]: null
+          [require('sequelize').Op.like]: `${prefix}-%`
         }
       },
       order: [['createdAt', 'DESC']]
@@ -37,18 +39,20 @@ async function generateInvoiceNumber() {
     let nextNumber = 1;
     
     if (lastInvoice && lastInvoice.invoiceNumber) {
-      // Extract number from format INV-0001
-      const match = lastInvoice.invoiceNumber.match(/INV-(\d+)/);
+      // Extract number from format INV-0001 or QUO-0001
+      const regex = new RegExp(`${prefix}-(\\d+)`);
+      const match = lastInvoice.invoiceNumber.match(regex);
       if (match) {
-        nextNumber = parseInt(match[1]) + 1;
+        nextNumber = parseInt(match[1], 10) + 1;
       }
     }
 
-    return `INV-${String(nextNumber).padStart(4, '0')}`;
+    return `${prefix}-${String(nextNumber).padStart(4, '0')}`;
   } catch (error) {
     console.error('Error generating invoice number:', error);
     // Fallback to timestamp-based number if there's an error
-    return `INV-${Date.now().toString().slice(-4)}`;
+    const fallbackPrefix = documentType === "quote" ? "QUO" : "INV";
+    return `${fallbackPrefix}-${Date.now().toString().slice(-4)}`;
   }
 }
 
@@ -74,6 +78,8 @@ exports.createInvoice = async (req, res) => {
     tasks, 
     notes,
     status,
+    documentType = "invoice",
+    validUntil,
     customFields, // Accept custom fields
     itemStructure, // Accept item structure
     // Recurring fields
@@ -117,12 +123,13 @@ exports.createInvoice = async (req, res) => {
       }
     }
 
+    const normalizedDocumentType = documentType === "quote" ? "quote" : "invoice";
     const initialCustomFields = customFields ? { ...customFields } : {};
     const financialSummary = buildFinancialSummary(tasks, initialCustomFields);
     const totalAmount = financialSummary.totalWithVat;
 
     // Generate sequential invoice number
-    const invoiceNumber = await generateInvoiceNumber();
+    const invoiceNumber = await generateInvoiceNumber(normalizedDocumentType);
 
     console.log('📝 Creating invoice with data:', {
       client,
@@ -139,6 +146,7 @@ exports.createInvoice = async (req, res) => {
       invoiceNumber,
       client,
       clientEmail: clientEmail || null, // Save client email
+      documentType: normalizedDocumentType,
       date,
       workType,
       currency,
@@ -147,12 +155,16 @@ exports.createInvoice = async (req, res) => {
       status: status || "Draft", // Use provided status or default to Draft
       customFields: financialSummary.updatedCustomFields, // Store custom fields (with VAT metadata)
       itemStructure: structure, // Store item structure
+      validUntil: validUntil || null,
     };
 
     console.log('💾 Invoice data to save:', JSON.stringify(invoiceData, null, 2));
 
     // Add recurring fields if enabled
-    if (isRecurring) {
+    if (normalizedDocumentType === "quote") {
+      invoiceData.isRecurring = false;
+      invoiceData.autoSendEmail = false;
+    } else if (isRecurring) {
       invoiceData.isRecurring = true;
       invoiceData.recurringFrequency = recurringFrequency || 'monthly';
       invoiceData.recurringStartDate = recurringStartDate || new Date();
@@ -443,6 +455,10 @@ exports.updateInvoice = async (req, res) => {
     totalAmount,
     itemStructure, // Add item structure support
     customFields, // Add custom fields support
+    documentType,
+    validUntil,
+    quoteId,
+    convertedInvoiceId,
     // Recurring fields
     isRecurring,
     recurringFrequency,
@@ -452,6 +468,7 @@ exports.updateInvoice = async (req, res) => {
     maxRecurrences,
     autoSendEmail,
     recurringCount,
+    recurringTime,
     emailTemplateId,
     invoiceTemplateId
   } = req.body;
@@ -491,13 +508,23 @@ exports.updateInvoice = async (req, res) => {
 
     // Update basic invoice fields
     if (status) invoice.status = status;
+    if (documentType && ["invoice", "quote"].includes(documentType)) {
+      invoice.documentType = documentType;
+      if (documentType === "quote") {
+        invoice.isRecurring = false;
+        invoice.autoSendEmail = false;
+      }
+    }
     if (client) invoice.client = client;
     if (clientEmail !== undefined) invoice.clientEmail = clientEmail;
     if (date) invoice.date = date;
     if (workType) invoice.workType = workType;
     if (currency) invoice.currency = currency;
     if (notes !== undefined) invoice.notes = notes;
+    if (validUntil !== undefined) invoice.validUntil = validUntil;
     if (itemStructure !== undefined) invoice.itemStructure = itemStructure;
+    if (quoteId !== undefined) invoice.quoteId = quoteId || null;
+    if (convertedInvoiceId !== undefined) invoice.convertedInvoiceId = convertedInvoiceId || null;
     if (customFields !== undefined) {
       mergedCustomFields = { ...customFields };
     }
@@ -511,6 +538,7 @@ exports.updateInvoice = async (req, res) => {
     if (maxRecurrences !== undefined) invoice.maxRecurrences = maxRecurrences;
     if (autoSendEmail !== undefined) invoice.autoSendEmail = autoSendEmail;
     if (recurringCount !== undefined) invoice.recurringCount = recurringCount;
+    if (recurringTime !== undefined) invoice.recurringTime = recurringTime;
     if (emailTemplateId !== undefined) {
       console.log('📧 Updating email template ID from', invoice.emailTemplateId, 'to', emailTemplateId);
       invoice.emailTemplateId = emailTemplateId;
@@ -978,5 +1006,97 @@ exports.stopRecurring = async (req, res) => {
   } catch (error) {
     console.error("Error stopping recurring invoice:", error);
     res.status(500).json({ message: "Failed to stop recurring invoice", error: error.message });
+  }
+};
+
+// Convert quote to invoice
+exports.convertQuote = async (req, res) => {
+  const { id } = req.params;
+
+  const transaction = await Invoice.sequelize.transaction();
+  try {
+    const quote = await Invoice.findOne({
+      where: {
+        id,
+        userId: req.user.id,
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!quote) {
+      await transaction.rollback();
+      return res.status(404).json({ message: "Quote not found" });
+    }
+
+    if ((quote.documentType || "invoice") !== "quote") {
+      await transaction.rollback();
+      return res.status(400).json({ message: "Only quotes can be converted" });
+    }
+
+    const newInvoiceData = {
+      userId: quote.userId,
+      client: quote.client,
+      clientEmail: quote.clientEmail,
+      workType: quote.workType,
+      currency: quote.currency,
+      date: new Date(),
+      notes: quote.notes,
+      totalAmount: quote.totalAmount,
+      status: "Draft",
+      customFields: quote.customFields || {},
+      itemStructure: quote.itemStructure || "hourly",
+      documentType: "invoice",
+      quoteId: quote.id,
+    };
+
+    newInvoiceData.invoiceNumber = await generateInvoiceNumber("invoice");
+
+    const newInvoice = await Invoice.create(newInvoiceData, { transaction });
+
+    const quoteTasks = await Task.findAll({
+      where: { invoiceId: quote.id },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (quoteTasks && quoteTasks.length > 0) {
+      const taskPayloads = quoteTasks.map((task) => ({
+        description: task.description,
+        hours: task.hours,
+        rate: task.rate,
+        quantity: task.quantity,
+        unitPrice: task.unitPrice,
+        days: task.days,
+        amount: task.amount,
+        total: task.total,
+        invoiceId: newInvoice.id,
+      }));
+      await Task.bulkCreate(taskPayloads, { transaction });
+    }
+
+    await quote.update(
+      {
+        status: "Converted",
+        convertedInvoiceId: newInvoice.id,
+      },
+      { transaction }
+    );
+
+    await transaction.commit();
+
+    const createdInvoice = await Invoice.findOne({
+      where: { id: newInvoice.id },
+      include: [{ model: Task, as: "tasks" }],
+    });
+
+    res.status(201).json({
+      message: "Quote converted to invoice",
+      invoice: createdInvoice,
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error converting quote:", error);
+    res.status(500).json({ message: "Failed to convert quote", error: error.message });
   }
 };

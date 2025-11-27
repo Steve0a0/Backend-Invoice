@@ -1,4 +1,4 @@
-const { Sequelize, DataTypes } = require("sequelize");
+const { Sequelize, DataTypes, Op } = require("sequelize");
 const sequelize = require("../config/database");
 const User = require("./User"); // Import User model
 
@@ -59,6 +59,12 @@ const Invoice = sequelize.define("Invoice", {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  documentType: {
+    type: DataTypes.ENUM("invoice", "quote"),
+    defaultValue: "invoice",
+    allowNull: false,
+    comment: "Identifies whether this record is a quote or an invoice",
+  },
   clientEmail: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -81,8 +87,13 @@ const Invoice = sequelize.define("Invoice", {
     allowNull: false,
   },
   status: {
-    type: DataTypes.ENUM("Draft", "Sent", "Pending", "Paid", "Overdue"),
+    type: DataTypes.ENUM("Draft", "Sent", "Pending", "Paid", "Overdue", "Accepted", "Declined", "Converted"),
     defaultValue: "Draft",
+  },
+  validUntil: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: "Expiration date for quotes",
   },
   // Recurring Invoice Fields
   isRecurring: {
@@ -119,6 +130,16 @@ const Invoice = sequelize.define("Invoice", {
     type: DataTypes.UUID,
     allowNull: true,
     comment: "Reference to original recurring invoice if this is a copy",
+  },
+  quoteId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    comment: "Quote this invoice originated from (if applicable)",
+  },
+  convertedInvoiceId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    comment: "Invoice created from this quote (if applicable)",
   },
   isFirstRecurringInvoice: {
     type: DataTypes.BOOLEAN,

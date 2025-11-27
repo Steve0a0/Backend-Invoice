@@ -1,51 +1,24 @@
-const { Invoice } = require('../model/Invoice');
 
-async function addInvoiceNumberColumn() {
-  try {
-    console.log('Starting invoice number migration...');
+'use strict';
 
-    // Add the column to the database
-    await Invoice.sequelize.query(`
-      ALTER TABLE "Invoices" 
-      ADD COLUMN IF NOT EXISTS "invoiceNumber" VARCHAR(255) UNIQUE;
-    `);
-
-    console.log('Column added successfully.');
-
-    // Get all existing invoices ordered by creation date
-    const existingInvoices = await Invoice.findAll({
-      order: [['createdAt', 'ASC']],
-      attributes: ['id', 'invoiceNumber', 'createdAt']
-    });
-
-    console.log(`Found ${existingInvoices.length} existing invoices.`);
-
-    // Generate invoice numbers for existing invoices
+module.exports = {
+  up: async (queryInterface, Sequelize) => {
+    // Only populate invoiceNumber for existing invoices
+    const [results] = await queryInterface.sequelize.query(
+      'SELECT id FROM "Invoices" ORDER BY "createdAt" ASC'
+    );
     let counter = 1;
-    for (const invoice of existingInvoices) {
-      if (!invoice.invoiceNumber) {
-        const invoiceNum = `INV-${String(counter).padStart(4, '0')}`;
-        await invoice.update({ invoiceNumber: invoiceNum });
-        console.log(`Updated invoice ${invoice.id} with number ${invoiceNum}`);
-        counter++;
-      }
+    for (const invoice of results) {
+      const invoiceNum = `INV-${String(counter).padStart(4, '0')}`;
+      await queryInterface.sequelize.query(
+        `UPDATE "Invoices" SET "invoiceNumber" = :invoiceNum WHERE "id" = :id`,
+        { replacements: { invoiceNum, id: invoice.id } }
+      );
+      counter++;
     }
+  },
 
-    console.log('Invoice number migration completed successfully!');
-  } catch (error) {
-    console.error('Error during migration:', error);
-    throw error;
+  down: async (queryInterface, Sequelize) => {
+    await queryInterface.removeColumn('Invoices', 'invoiceNumber');
   }
-}
-
-// Run migration if called directly
-if (require.main === module) {
-  addInvoiceNumberColumn()
-    .then(() => process.exit(0))
-    .catch(err => {
-      console.error(err);
-      process.exit(1);
-    });
-}
-
-module.exports = addInvoiceNumberColumn;
+};
