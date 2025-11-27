@@ -1,5 +1,6 @@
 const { Sequelize, DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
+const { safeEncrypt, safeDecrypt } = require("../utils/encryption");
 
 const User = sequelize.define("User", {
   id: {
@@ -103,46 +104,123 @@ const User = sequelize.define("User", {
   bankName: {
     type: DataTypes.STRING,
     allowNull: true,
+    set(value) {
+      this.setDataValue("bankName", safeEncrypt(value, { label: "User.bankName" }));
+    },
+    get() {
+      const raw = this.getDataValue("bankName");
+      return safeDecrypt(raw, { returnNull: true, label: "User.bankName" });
+    },
   },
   accountHolderName: {
     type: DataTypes.STRING,
     allowNull: true,
+    set(value) {
+      this.setDataValue("accountHolderName", safeEncrypt(value, { label: "User.accountHolderName" }));
+    },
+    get() {
+      const raw = this.getDataValue("accountHolderName");
+      return safeDecrypt(raw, { returnNull: true, label: "User.accountHolderName" });
+    },
   },
   accountName: {
     type: DataTypes.STRING,
     allowNull: true,
+    set(value) {
+      this.setDataValue("accountName", safeEncrypt(value, { label: "User.accountName" }));
+    },
+    get() {
+      const raw = this.getDataValue("accountName");
+      return safeDecrypt(raw, { returnNull: true, label: "User.accountName" });
+    },
   },
   accountNumber: {
     type: DataTypes.STRING,
     allowNull: true,
+    set(value) {
+      this.setDataValue("accountNumber", safeEncrypt(value, { label: "User.accountNumber" }));
+    },
+    get() {
+      const raw = this.getDataValue("accountNumber");
+      return safeDecrypt(raw, { returnNull: true, label: "User.accountNumber" });
+    },
   },
   iban: {
     type: DataTypes.STRING,
     allowNull: true,
+    set(value) {
+      this.setDataValue("iban", safeEncrypt(value, { label: "User.iban" }));
+    },
+    get() {
+      const raw = this.getDataValue("iban");
+      return safeDecrypt(raw, { returnNull: true, label: "User.iban" });
+    },
   },
   bic: {
     type: DataTypes.STRING,
     allowNull: true,
+    set(value) {
+      this.setDataValue("bic", safeEncrypt(value, { label: "User.bic" }));
+    },
+    get() {
+      const raw = this.getDataValue("bic");
+      return safeDecrypt(raw, { returnNull: true, label: "User.bic" });
+    },
   },
   sortCode: {
     type: DataTypes.STRING,
     allowNull: true,
+    set(value) {
+      this.setDataValue("sortCode", safeEncrypt(value, { label: "User.sortCode" }));
+    },
+    get() {
+      const raw = this.getDataValue("sortCode");
+      return safeDecrypt(raw, { returnNull: true, label: "User.sortCode" });
+    },
   },
   swiftCode: {
     type: DataTypes.STRING,
     allowNull: true,
+    set(value) {
+      this.setDataValue("swiftCode", safeEncrypt(value, { label: "User.swiftCode" }));
+    },
+    get() {
+      const raw = this.getDataValue("swiftCode");
+      return safeDecrypt(raw, { returnNull: true, label: "User.swiftCode" });
+    },
   },
   routingNumber: {
     type: DataTypes.STRING,
     allowNull: true,
+    set(value) {
+      this.setDataValue("routingNumber", safeEncrypt(value, { label: "User.routingNumber" }));
+    },
+    get() {
+      const raw = this.getDataValue("routingNumber");
+      return safeDecrypt(raw, { returnNull: true, label: "User.routingNumber" });
+    },
   },
   bankAddress: {
     type: DataTypes.TEXT,
     allowNull: true,
+    set(value) {
+      this.setDataValue("bankAddress", safeEncrypt(value, { label: "User.bankAddress" }));
+    },
+    get() {
+      const raw = this.getDataValue("bankAddress");
+      return safeDecrypt(raw, { returnNull: true, label: "User.bankAddress" });
+    },
   },
   additionalInfo: {
     type: DataTypes.TEXT,
     allowNull: true,
+    set(value) {
+      this.setDataValue("additionalInfo", safeEncrypt(value, { label: "User.additionalInfo" }));
+    },
+    get() {
+      const raw = this.getDataValue("additionalInfo");
+      return safeDecrypt(raw, { returnNull: true, label: "User.additionalInfo" });
+    },
   },
   // Invoice item structure preference
   itemStructure: {

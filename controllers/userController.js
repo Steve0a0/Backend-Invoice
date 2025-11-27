@@ -1,6 +1,13 @@
 const User = require("../model/User");
 const { logActivity } = require("../utils/activityLogger");
 
+const maskForLog = (value) => {
+  if (!value) return "";
+  const str = String(value);
+  if (str.length <= 4) return "***";
+  return `${"*".repeat(Math.max(str.length - 4, 1))}${str.slice(-4)}`;
+};
+
 exports.updateUser = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -177,6 +184,13 @@ exports.getBankDetails = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    console.log("[BankDetails] Fetching decrypted bank details", {
+      userId,
+      hasAccountNumber: Boolean(user.accountNumber),
+      hasIban: Boolean(user.iban),
+      hasSwift: Boolean(user.swiftCode),
+    });
+
     res.status(200).json({
       accountHolderName: user.accountHolderName || '',
       bankName: user.bankName || '',
@@ -212,6 +226,15 @@ exports.updateBankDetails = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    console.log("[BankDetails] Updating bank details", {
+      userId,
+      bankName,
+      accountHolderName,
+      accountNumberMasked: maskForLog(accountNumber),
+      ibanMasked: maskForLog(iban),
+      bicMasked: maskForLog(bic),
+    });
+
     // Update bank details
     user.accountHolderName = accountHolderName || '';
     user.bankName = bankName || '';
@@ -231,6 +254,12 @@ exports.updateBankDetails = async (req, res) => {
       null,
       { bankName, accountHolderName }
     );
+
+    console.log("[BankDetails] Bank details saved", {
+      userId,
+      accountNumberMasked: maskForLog(user.accountNumber),
+      ibanMasked: maskForLog(user.iban),
+    });
 
     res.status(200).json({
       message: "Bank details updated successfully",

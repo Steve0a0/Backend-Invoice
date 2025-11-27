@@ -1,6 +1,7 @@
 const { Sequelize, DataTypes } = require("sequelize");
 const sequelize = require("../config/database");
 const User = require("./User"); // Import User model
+const { safeEncrypt, safeDecrypt } = require("../utils/encryption");
 
 const EmailSettings = sequelize.define("EmailSettings", {
   id: {
@@ -19,6 +20,13 @@ const EmailSettings = sequelize.define("EmailSettings", {
   appPassword: {
     type: DataTypes.STRING,
     allowNull: true,
+    set(value) {
+      this.setDataValue("appPassword", safeEncrypt(value, { label: "EmailSettings.appPassword" }));
+    },
+    get() {
+      const raw = this.getDataValue("appPassword");
+      return safeDecrypt(raw, { label: "EmailSettings.appPassword" });
+    },
   },
   smtpHost: {
     type: DataTypes.STRING,
@@ -43,14 +51,35 @@ const EmailSettings = sequelize.define("EmailSettings", {
   paypalClientId: {
     type: DataTypes.STRING,
     allowNull: true,
+    set(value) {
+      this.setDataValue("paypalClientId", safeEncrypt(value, { label: "EmailSettings.paypalClientId" }));
+    },
+    get() {
+      const raw = this.getDataValue("paypalClientId");
+      return safeDecrypt(raw, { label: "EmailSettings.paypalClientId" });
+    },
   },
   paypalSecret: {
     type: DataTypes.STRING,
     allowNull: true,
+    set(value) {
+      this.setDataValue("paypalSecret", safeEncrypt(value, { label: "EmailSettings.paypalSecret" }));
+    },
+    get() {
+      const raw = this.getDataValue("paypalSecret");
+      return safeDecrypt(raw, { label: "EmailSettings.paypalSecret" });
+    },
   },
   stripeSecretKey: {
     type: DataTypes.STRING,
     allowNull: true,
+    set(value) {
+      this.setDataValue("stripeSecretKey", safeEncrypt(value, { label: "EmailSettings.stripeSecretKey" }));
+    },
+    get() {
+      const raw = this.getDataValue("stripeSecretKey");
+      return safeDecrypt(raw, { label: "EmailSettings.stripeSecretKey" });
+    },
   },
 });
 

@@ -92,8 +92,6 @@ exports.saveEmailSettings = async (req, res) => {
 exports.getEmailSettings = async (req, res) => {
   try {
     const userId = req.user.id;
-    console.log("Fetching email settings for User ID:", userId);
-
     const settings = await EmailSettings.findOne({ where: { userId } });
 
     if (!settings) {

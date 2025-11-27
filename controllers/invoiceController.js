@@ -457,12 +457,6 @@ exports.updateInvoice = async (req, res) => {
   } = req.body;
 
   try {
-    console.log('📝 Attempting to update invoice:', id);
-    console.log('📦 Update data:', req.body);
-    if (invoiceTemplateId !== undefined) {
-      console.log('🎨 Updating invoice template ID to:', invoiceTemplateId);
-    }
-
     // Find the invoice with tasks
     const invoice = await Invoice.findOne({
       where: { 
@@ -522,7 +516,6 @@ exports.updateInvoice = async (req, res) => {
       invoice.emailTemplateId = emailTemplateId;
     }
     if (invoiceTemplateId !== undefined) {
-      console.log('🎨 Updating invoice template ID from', invoice.invoiceTemplateId, 'to', invoiceTemplateId);
       invoice.invoiceTemplateId = invoiceTemplateId;
     }
 
