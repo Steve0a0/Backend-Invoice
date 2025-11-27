@@ -7,6 +7,7 @@ const sequelize = require("./config/database"); // Sequelize instance
 // Import models to sync with DB
 const User = require("./model/User");
 const { Invoice, Task } = require("./model/Invoice");
+const Expense = require("./model/Expense");
 const EmailTemplate = require("./model/EmailTemplate");
 const EmailSettings = require("./model/EmailSettings");
 const Activity = require("./model/Activity");
@@ -26,6 +27,7 @@ const testRoutes = require("./routes/testRoutes");
 const seedRoute = require("./routes/adminRoutes");
 const activityRoutes = require("./routes/activityRoutes");
 const customFieldRoutes = require("./routes/customFieldRoutes");
+const expenseRoutes = require("./routes/expenseRoutes");
 const { startRecurringInvoiceScheduler } = require("./services/recurringInvoiceScheduler");
 const { migrateExistingInvoices } = require("./utils/migrateActivities");
 dotenv.config();
@@ -148,6 +150,7 @@ app.use(authRoutes);
 app.use("/api", emailRoutes);
 app.use("/api/invoices", invoiceRoutes); 
 app.use("/api/invoicetemplates", invoiceTemplateRoutes);
+app.use("/api/expenses", expenseRoutes);
 app.use("/api/recent-activities", activityRoutes);
 app.use("/api/custom-fields", customFieldRoutes);
 
